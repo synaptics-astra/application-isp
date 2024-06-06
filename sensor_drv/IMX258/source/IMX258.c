@@ -85,7 +85,7 @@ static IsiSensorMode_t pimx258_mode_info[] = {
 static RESULT IMX258_IsiReadRegIss(IsiSensorHandle_t handle, const uint16_t addr, uint16_t *pValue)
 {
     RESULT result = RET_SUCCESS;
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL || pIMX258Ctx->isiCtx.halI2cHandle == NULL) {
@@ -98,14 +98,14 @@ static RESULT IMX258_IsiReadRegIss(IsiSensorHandle_t handle, const uint16_t addr
         return (RET_FAILURE);
     }
 
-    printf( "%s (exit) result = %d\n", __func__, result);
+    TRACE(IMX258_DEBUG,  "%s (exit) result = %d\n", __func__, result);
     return (result);
 }
 
 static RESULT IMX258_IsiWriteRegIss(IsiSensorHandle_t handle, const uint16_t addr, const uint16_t value)
 {
     RESULT result = RET_SUCCESS;
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL || pIMX258Ctx->isiCtx.halI2cHandle == NULL) {
@@ -118,13 +118,13 @@ static RESULT IMX258_IsiWriteRegIss(IsiSensorHandle_t handle, const uint16_t add
         return (RET_FAILURE);
     }
 
-    printf( "%s (exit) result = %d\n", __func__, result);
+    TRACE(IMX258_DEBUG,  "%s (exit) result = %d\n", __func__, result);
     return (result);
 }
 
 static RESULT IMX258_IsiGetModeIss(IsiSensorHandle_t handle, IsiSensorMode_t *pMode)
 {
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     const IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL) {
@@ -132,13 +132,13 @@ static RESULT IMX258_IsiGetModeIss(IsiSensorHandle_t handle, IsiSensorMode_t *pM
     }
     memcpy(pMode, &(pIMX258Ctx->sensorMode), sizeof(pIMX258Ctx->sensorMode));
 
-    printf( "%s (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (exit)\n", __func__);
     return ( RET_SUCCESS );
 }
 
 static  RESULT IMX258_IsiEnumModeIss(IsiSensorHandle_t handle, IsiSensorEnumMode_t *pEnumMode)
 {
-    printf( "%s (enter) with index %d\n", __func__, pEnumMode->index);
+    TRACE(IMX258_DEBUG,  "%s (enter) with index %d\n", __func__, pEnumMode->index);
     const IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL) {
         return RET_NULL_POINTER;
@@ -150,7 +150,7 @@ static  RESULT IMX258_IsiEnumModeIss(IsiSensorHandle_t handle, IsiSensorEnumMode
     for (uint32_t i = 0; i < (sizeof(pimx258_mode_info)/sizeof(pimx258_mode_info[0])); i++) {
         if (pimx258_mode_info[i].index == pEnumMode->index) {
             memcpy(&pEnumMode->mode, &pimx258_mode_info[i],sizeof(IsiSensorMode_t));
-            printf( "%s (exit)\n", __func__);
+            TRACE(IMX258_DEBUG,  "%s (exit)\n", __func__);
             return RET_SUCCESS;
         }
     }
@@ -164,7 +164,7 @@ static RESULT IMX258_IsiGetCapsIss(IsiSensorHandle_t handle, IsiCaps_t *pCaps)
 
     RESULT result = RET_SUCCESS;
 
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     if (pIMX258Ctx == NULL) return (RET_WRONG_HANDLE);
 
@@ -191,13 +191,13 @@ static RESULT IMX258_IsiGetCapsIss(IsiSensorHandle_t handle, IsiCaps_t *pCaps)
         pCaps->mipiMode      = ISI_MIPI_OFF;
     }
 
-    printf( "%s (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (exit)\n", __func__);
     return (result);
 }
 
 static RESULT IMX258_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorHandle_t *pHandle) {
     RESULT result = RET_SUCCESS;
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) malloc(sizeof(IMX258_Context_t));
     if (!pIMX258Ctx) {
@@ -237,7 +237,7 @@ static RESULT IMX258_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     *pHandle = (IsiSensorHandle_t) pIMX258Ctx;
 
-    printf( "%s (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -246,7 +246,7 @@ static RESULT IMX258_AecSetModeParameters(IsiSensorHandle_t handle, IMX258_Conte
     uint32_t regVal = 0;
 	uint16_t value = 0;
     RESULT result = RET_SUCCESS;
-    printf( "%s%s: (enter)\n", __func__,pIMX258Ctx->isAfpsRun ? "(AFPS)" : "");
+    TRACE(IMX258_DEBUG,  "%s%s: (enter)\n", __func__,pIMX258Ctx->isAfpsRun ? "(AFPS)" : "");
 
     pIMX258Ctx->aecIntegrationTimeIncrement = pIMX258Ctx->oneLineExpTime;
     pIMX258Ctx->aecMinIntegrationTime       = pIMX258Ctx->oneLineExpTime * pIMX258Ctx->minIntegrationLine;
@@ -267,7 +267,7 @@ static RESULT IMX258_AecSetModeParameters(IsiSensorHandle_t handle, IMX258_Conte
     pIMX258Ctx->aecCurIntegrationTime = regVal * pIMX258Ctx->oneLineExpTime;
     pIMX258Ctx->aecCurGain = 1;
 
-    TRACE(IMX258_INFO, "%s%s: (exit)\n", __func__,pIMX258Ctx->isAfpsRun ? "(AFPS)" : "");
+    TRACE(IMX258_DEBUG, "%s%s: (exit)\n", __func__,pIMX258Ctx->isAfpsRun ? "(AFPS)" : "");
 
     return (result);
 }
@@ -277,7 +277,7 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
 
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     if (!pIMX258Ctx) {
         TRACE(IMX258_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
@@ -297,7 +297,7 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
         }
     }
 
-	printf( "%s SensorDefaultMode.index = %d\n", __func__, SensorDefaultMode->index);
+	TRACE(IMX258_DEBUG, "%s SensorDefaultMode.index = %d\n", __func__, SensorDefaultMode->index);
 
     if (SensorDefaultMode != NULL) {
         switch(SensorDefaultMode->index) {
@@ -322,7 +322,7 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
                 }
             break;
         default:
-            printf( "%s:not support sensor mode %d\n", __func__,pIMX258Ctx->sensorMode.index);
+            TRACE(IMX258_DEBUG,  "%s:not support sensor mode %d\n", __func__,pIMX258Ctx->sensorMode.index);
             return RET_NOTSUPP;
        }
 
@@ -332,7 +332,7 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
         return (RET_NULL_POINTER);
     }
 
-	printf( "%s pIMX258Ctx->sensorMode.index = %d\n", __func__, pIMX258Ctx->sensorMode.index);
+	TRACE(IMX258_DEBUG,  "%s pIMX258Ctx->sensorMode.index = %d\n", __func__, pIMX258Ctx->sensorMode.index);
 			pIMX258Ctx->VtPixClkFreq     = 126880000.0f;
 			pIMX258Ctx->LineLengthPck    =  0x14E8;//HTS[0x0342,0x0343]
             pIMX258Ctx->aecCurGain          = 1.0;
@@ -400,7 +400,7 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pIMX258Ctx->dGain.step          = (1.0f/256.0f);
             break;
         default:
-            printf( "%s:not support sensor mode %d\n", __func__,pIMX258Ctx->sensorMode.index);
+            TRACE(IMX258_DEBUG,  "%s:not support sensor mode %d\n", __func__,pIMX258Ctx->sensorMode.index);
             return RET_NOTSUPP;
             break;
     }
@@ -420,7 +420,7 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
     }
 
     pIMX258Ctx->configured = BOOL_TRUE;
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return 0;
 }
 
@@ -428,13 +428,13 @@ static RESULT IMX258_IsiCloseIss(IsiSensorHandle_t handle)
 {
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     if (pIMX258Ctx == NULL) return (RET_WRONG_HANDLE);
 
     (void)IMX258_IsiSetStreamingIss(pIMX258Ctx, BOOL_FALSE);
 
-    printf( "%s (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -442,7 +442,7 @@ static RESULT IMX258_IsiReleaseIss(IsiSensorHandle_t handle)
 {
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     if (pIMX258Ctx == NULL) return (RET_WRONG_HANDLE);
 
@@ -451,7 +451,7 @@ static RESULT IMX258_IsiReleaseIss(IsiSensorHandle_t handle)
 
     MEMSET(pIMX258Ctx, 0, sizeof(IMX258_Context_t));
     free(pIMX258Ctx);
-    printf( "%s (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -462,7 +462,7 @@ static RESULT IMX258_IsiCheckConnectionIss(IsiSensorHandle_t handle)
     uint32_t sensorId = 0;
     uint32_t correctId = 0x0258;
 
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL || pIMX258Ctx->isiCtx.halI2cHandle == NULL) {
@@ -480,8 +480,9 @@ static RESULT IMX258_IsiCheckConnectionIss(IsiSensorHandle_t handle)
         return (RET_FAILURE);
     }
 
-    printf("%s ChipID = 0x%08x, sensorId = 0x%08x, success! \n", __func__,correctId, sensorId);
-    printf( "%s (exit)\n", __func__);
+    TRACE(IMX258_INFO, "%s ChipID = 0x%08x, sensorId = 0x%08x, success! \n", __func__,correctId, sensorId);
+
+    TRACE(IMX258_DEBUG,  "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -491,14 +492,14 @@ static RESULT IMX258_IsiGetRevisionIss(IsiSensorHandle_t handle, uint32_t *pValu
     uint16_t regVal;
     uint32_t sensorId;
 
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL || pIMX258Ctx->isiCtx.halI2cHandle == NULL) {
         return RET_NULL_POINTER;
     }
 
-    printf( "%s (enter) offset 0x0016\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter) offset 0x0016\n", __func__);
     regVal = 0;
     result = IMX258_IsiReadRegIss(handle, 0x0016, &regVal);
     sensorId = (regVal & 0xff) << 8;
@@ -508,13 +509,13 @@ static RESULT IMX258_IsiGetRevisionIss(IsiSensorHandle_t handle, uint32_t *pValu
     sensorId |= (regVal & 0xff);
 
     *pValue = sensorId;
-    printf( "%s (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (exit)\n", __func__);
     return (result);
 }
 
 static RESULT IMX258_IsiSetStreamingIss(IsiSensorHandle_t handle, bool_t on) {
     RESULT result = RET_SUCCESS;
-    printf( "%s (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL || pIMX258Ctx->isiCtx.halI2cHandle == NULL) {
@@ -533,7 +534,7 @@ static RESULT IMX258_IsiSetStreamingIss(IsiSensorHandle_t handle, bool_t on) {
 
 	pIMX258Ctx->streaming = on;
 
-	printf( "%s (exit)\n", __func__);
+	TRACE(IMX258_DEBUG, "%s (exit)\n", __func__);
 	return (result);
 }
 
@@ -542,7 +543,7 @@ static RESULT IMX258_IsiGetAeBaseInfoIss(IsiSensorHandle_t handle, IsiAeBaseInfo
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
 
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG, "%s: (enter)\n", __func__);
 
     if (pIMX258Ctx == NULL) {
         TRACE(IMX258_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
@@ -563,22 +564,22 @@ static RESULT IMX258_IsiGetAeBaseInfoIss(IsiSensorHandle_t handle, IsiAeBaseInfo
     //get again/dgain info
     pAeBaseInfo->aGain           = pIMX258Ctx->aGain;
     pAeBaseInfo->dGain           = pIMX258Ctx->dGain;
-    
+
     pAeBaseInfo->aecCurGain     = pIMX258Ctx->aecCurGain;
     pAeBaseInfo->aecCurIntTime  = pIMX258Ctx->aecCurIntegrationTime;
     pAeBaseInfo->aecGainStep    = pIMX258Ctx->aecGainIncrement;
     pAeBaseInfo->aecIntTimeStep = pIMX258Ctx->aecIntegrationTimeIncrement;
 
-	printf("%s: with gain %f and intg %f \n", __func__,  pAeBaseInfo->aecCurGain, pAeBaseInfo->aecCurIntTime);
+	TRACE(IMX258_DEBUG, "%s: with gain %f and intg %f \n", __func__,  pAeBaseInfo->aecCurGain, pAeBaseInfo->aecCurIntTime);
 
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG, "%s: (enter)\n", __func__);
     return (result);
 }
 
 RESULT IMX258_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorAGain)
 {
     RESULT result = RET_SUCCESS;
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG, "%s: (enter)\n", __func__);
     uint32_t again = 0;
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
@@ -603,14 +604,14 @@ RESULT IMX258_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
     pIMX258Ctx->curAgain = pSensorAGain->gain[ISI_LINEAR_PARAS];
     pIMX258Ctx->aecCurGain = pSensorAGain->gain[ISI_LINEAR_PARAS];
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 
 RESULT IMX258_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorDGain)
 {
 	RESULT result = RET_SUCCESS;
-	printf( "%s: (enter)\n", __func__);
+	TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 	uint32_t dgain = 0;
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
@@ -642,7 +643,7 @@ RESULT IMX258_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorD
     TRACE(IMX258_DEBUG, "Set Dgain %d NewGain %f\n",
 			dgain, pSensorDGain->gain[ISI_LINEAR_PARAS]);
 
-	printf( "%s: (exit)\n", __func__);
+	TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
 	return (result);
 }
 
@@ -650,7 +651,7 @@ RESULT IMX258_IsiGetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
 {
     const IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 
     if (pIMX258Ctx == NULL) {
         TRACE(IMX258_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
@@ -663,7 +664,7 @@ RESULT IMX258_IsiGetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
 
     pSensorAGain->gain[ISI_LINEAR_PARAS] = pIMX258Ctx->curAgain;
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -671,7 +672,7 @@ RESULT IMX258_IsiGetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorD
 {
     const IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 
     if (pIMX258Ctx == NULL) {
         TRACE(IMX258_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
@@ -684,14 +685,14 @@ RESULT IMX258_IsiGetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorD
 
     pSensorDGain->gain[ISI_LINEAR_PARAS] = pIMX258Ctx->curDgain;
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 
 RESULT IMX258_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_t *pSensorIntTime)
 {
     RESULT result = RET_SUCCESS;
-    TRACE(IMX258_INFO, "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG, "%s: (enter)\n", __func__);
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     uint32_t expLine = 0;
 
@@ -713,7 +714,7 @@ RESULT IMX258_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_
 
     TRACE(IMX258_DEBUG, "%s: set IntTime = %f\n", __func__, pIMX258Ctx->aecCurIntegrationTime);
 
-    TRACE(IMX258_INFO, "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG, "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -721,7 +722,7 @@ RESULT IMX258_IsiGetIntTimeIss(IsiSensorHandle_t handle, IsiSensorIntTime_t *pSe
 {
     const IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 
     if (!pIMX258Ctx) {
         TRACE(IMX258_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
@@ -732,7 +733,7 @@ RESULT IMX258_IsiGetIntTimeIss(IsiSensorHandle_t handle, IsiSensorIntTime_t *pSe
 
     pSensorIntTime->intTime[ISI_LINEAR_PARAS] = pIMX258Ctx->aecCurIntegrationTime;
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -740,7 +741,7 @@ RESULT IMX258_IsiGetFpsIss(IsiSensorHandle_t handle, uint32_t *pFps)
 {
     const IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 
     if (pIMX258Ctx == NULL) {
         TRACE(IMX258_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
@@ -749,7 +750,7 @@ RESULT IMX258_IsiGetFpsIss(IsiSensorHandle_t handle, uint32_t *pFps)
 
     *pFps = pIMX258Ctx->currFps;
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -757,7 +758,7 @@ RESULT IMX258_IsiSetFpsIss(IsiSensorHandle_t handle, uint32_t fps)
 {
     RESULT result = RET_SUCCESS;
     int32_t NewVts = 0;
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL) {
@@ -795,7 +796,7 @@ RESULT IMX258_IsiSetFpsIss(IsiSensorHandle_t handle, uint32_t fps)
     pIMX258Ctx->maxIntegrationLine   = pIMX258Ctx->curFrameLengthLines - 8;
     //pIMX258Ctx->aecMaxIntegrationTime = pIMX258Ctx->maxIntegrationLine * pIMX258Ctx->oneLineExpTime;
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -805,20 +806,20 @@ RESULT IMX258_IsiGetIspStatusIss(IsiSensorHandle_t handle, IsiIspStatus_t *pIspS
     if (pIMX258Ctx == NULL) {
         return RET_WRONG_HANDLE;
     }
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 
     pIspStatus->useSensorAE  = false;
     pIspStatus->useSensorBLC = false;
     pIspStatus->useSensorAWB = false;
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return RET_SUCCESS;
 }
 
 RESULT IMX258_IsiSetTpgIss(IsiSensorHandle_t handle, IsiSensorTpg_t tpg)
 {
     RESULT result = RET_SUCCESS;
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL || pIMX258Ctx->isiCtx.halI2cHandle == NULL) {
@@ -837,14 +838,14 @@ RESULT IMX258_IsiSetTpgIss(IsiSensorHandle_t handle, IsiSensorTpg_t tpg)
 
     pIMX258Ctx->testPattern = tpg.enable;
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 RESULT IMX258_IsiGetTpgIss(IsiSensorHandle_t handle, IsiSensorTpg_t *pTpg)
 {
     RESULT result = RET_SUCCESS;
     uint16_t value = 0;
-    printf( "%s: (enter)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (enter)\n", __func__);
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL || pIMX258Ctx->isiCtx.halI2cHandle == NULL || pTpg == NULL) {
@@ -861,7 +862,7 @@ RESULT IMX258_IsiGetTpgIss(IsiSensorHandle_t handle, IsiSensorTpg_t *pTpg)
       pIMX258Ctx->testPattern = pTpg->enable;
     }
 
-    printf( "%s: (exit)\n", __func__);
+    TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -869,7 +870,7 @@ RESULT IMX258_IsiGetSensorIss(IsiSensor_t *pIsiSensor)
 {
     RESULT result = RET_SUCCESS;
     static const char SensorName[16] = "IMX258";
-    TRACE( IMX258_INFO, "%s (enter)\n", __func__);
+    TRACE( IMX258_DEBUG, "%s (enter)\n", __func__);
 
     if ( pIsiSensor != NULL ) {
         pIsiSensor->pszName                             = SensorName;
@@ -921,7 +922,7 @@ RESULT IMX258_IsiGetSensorIss(IsiSensor_t *pIsiSensor)
         result = RET_NULL_POINTER;
     }
 
-    TRACE( IMX258_INFO, "%s (exit)\n", __func__);
+    TRACE( IMX258_DEBUG, "%s (exit)\n", __func__);
     return ( result );
 }
 

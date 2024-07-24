@@ -53,6 +53,7 @@ extern IsiCamDrvConfig_t SC1330T_IsiCamDrvConfig;
 extern IsiCamDrvConfig_t OS04a10_IsiCamDrvConfig;
 #ifdef DOLPHIN
 extern IsiCamDrvConfig_t IMX258_IsiCamDrvConfig;
+extern IsiCamDrvConfig_t IMX415_IsiCamDrvConfig;
 #endif
 
 RESULT SensorDrvConfigMapping
@@ -77,10 +78,6 @@ RESULT SensorDrvConfigMapping
         {"ar0820" , &AR0820_IsiCamDrvConfig },
         {"ov10652", &OV10652_IsiCamDrvConfig},
         {"ox08a4y", &OX08a4Y_IsiCamDrvConfig},
-        //{"ox03a10", &OX03a10_IsiCamDrvConfig},
-        //{"os02k10", &OS02k10_IsiCamDrvConfig},
-        //{"os02c10", &OS02c10_IsiCamDrvConfig},
-        //{"imx334" , &IMX334_IsiCamDrvConfig },
         {"imx327" ,  &IMX327_IsiCamDrvConfig },
         {"ov13b10" , &OV13b10_IsiCamDrvConfig },
         {"ov50a40" , &OV50a40_IsiCamDrvConfig },
@@ -89,6 +86,7 @@ RESULT SensorDrvConfigMapping
         {"os04a10" , &OS04a10_IsiCamDrvConfig },
 #ifdef DOLPHIN
         {"imx258" , &IMX258_IsiCamDrvConfig },
+        {"imx415" , &IMX415_IsiCamDrvConfig },
 #endif
     };
 
@@ -103,180 +101,4 @@ RESULT SensorDrvConfigMapping
     TRACE(SENSOR_DRV_ERROR, "%s: Unsupport sensor %s !\n", __func__,pSensorName);
     return RET_NOTSUPP;
 }
-
-
-//RESULT HalGetSensorName(HalHandle_t HalHandle, char pSensorName[], uint16_t arraySize)
-//{
-//    RESULT result;
-//    AdaptSensorInfo_t sensorInfo;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL || pSensorName == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//
-//    result = AdaptGetSensorInfo(pHalCtx->adaptHandle, &sensorInfo);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: get sensor name error in hal!\n", __func__);
-//        return result;
-//    }
-//
-//    snprintf(pSensorName, arraySize, "%s", sensorInfo.pSensorName);
-//    return RET_SUCCESS;
-//}
-//
-//RESULT HalGetSensorDrvName(HalHandle_t HalHandle, char pSensorDrvName[], uint16_t arraySize)
-//{
-//    RESULT result;
-//    AdaptSensorInfo_t sensorInfo;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL || pSensorDrvName == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//
-//    result = AdaptGetSensorInfo(pHalCtx->adaptHandle, &sensorInfo);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: get sensor drv name error in hal!\n", __func__);
-//        return result;
-//    }
-//
-//    snprintf(pSensorDrvName, arraySize, "%s", sensorInfo.pSensorDrvName);
-//    return RET_SUCCESS;
-//}
-//
-//RESULT HalGetSensorCalibXmlName(HalHandle_t HalHandle, char pSensorCalibXmlName[], uint16_t arraySize)
-//{
-//    RESULT result;
-//    AdaptSensorInfo_t sensorInfo;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL || pSensorCalibXmlName == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//    result = AdaptGetSensorInfo(pHalCtx->adaptHandle, &sensorInfo);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: get sensor calibration XML name error in hal!\n", __func__);
-//        return result;
-//    }
-//
-//    snprintf(pSensorCalibXmlName, arraySize, "%s", sensorInfo.pSensorCalibXmlName);
-//    return RET_SUCCESS;
-//
-//}
-//
-//RESULT HalGetSensorDefaultMode(HalHandle_t HalHandle, uint32_t *pMode)
-//{
-//    RESULT result;
-//    AdaptSensorInfo_t sensorInfo;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL || pMode == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//    result = AdaptGetSensorInfo(pHalCtx->adaptHandle, &sensorInfo);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: get sensor default mode error in hal!\n", __func__);
-//        return result;
-//    }
-//
-//    *pMode = sensorInfo.sensorDefaultMode;
-//    return RET_SUCCESS;
-//}
-//
-//RESULT HalGetSensorCurrMode(HalHandle_t HalHandle, uint32_t *pMode)
-//{
-//    RESULT result;
-//    AdaptSensorInfo_t sensorInfo;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL || pMode == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//    result = AdaptGetSensorInfo(pHalCtx->adaptHandle, &sensorInfo);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: get sensor current mode error in hal!\n", __func__);
-//        return result;
-//    }
-//
-//    *pMode = sensorInfo.sensorCurrMode;
-//    return RET_SUCCESS;
-//}
-//
-//RESULT HalGetSensorCurrHdrMode(HalHandle_t HalHandle, uint32_t *pMode)
-//{
-//    RESULT result;
-//    AdaptSensorInfo_t sensorInfo;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL || pMode == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//    result = AdaptGetSensorInfo(pHalCtx->adaptHandle, &sensorInfo);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: get sensor current hdr mode error in hal!\n", __func__);
-//        return result;
-//    }
-//
-//    *pMode = sensorInfo.sensorHdrEnable;
-//    return RET_SUCCESS;
-//}
-//
-//
-//RESULT HalSetSensorMode(HalHandle_t HalHandle, uint32_t mode)
-//{
-//    RESULT result;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//    result = AdaptSetSensorMode(pHalCtx->adaptHandle, mode);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: set sensor mode error in hal!\n", __func__);
-//        return result;
-//    }
-//    return RET_SUCCESS;
-//}
-//
-//RESULT HalSetSensorCalibXmlName(HalHandle_t HalHandle, const char* CalibXmlName)
-//{
-//    RESULT result;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL || CalibXmlName == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//    result = AdaptSetSensorCalibXmlName(pHalCtx->adaptHandle, CalibXmlName);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: set sensor CalibXmlName error in hal!\n", __func__);
-//        return result;
-//    }
-//    return RET_SUCCESS;
-//}
-//
-//RESULT HaSensorModeLock(HalHandle_t HalHandle)
-//{
-//    RESULT result;
-//    HalContext_t *pHalCtx = (HalContext_t *)HalHandle;
-//    if(pHalCtx == NULL)
-//    {
-//        return RET_NULL_POINTER;
-//    }
-//    result = AdaptSensorModeLock(pHalCtx->adaptHandle);
-//    if(result != RET_SUCCESS)
-//    {
-//        TRACE(HAL_ERROR, "%s: sensor mode lock error in hal!\n", __func__);
-//        return result;
-//    }
-//    return RET_SUCCESS;
-//}
 

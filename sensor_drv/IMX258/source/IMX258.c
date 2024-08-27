@@ -29,9 +29,9 @@ CREATE_TRACER( IMX258_REG_DEBUG, "IMX258: ", INFO, 1);
 
 #define IMX258_MaxAGain     ( 16.0f )            /* imx258 max analog gain time */
 #define IMX258_MIN_GAIN_STEP    (1.0f/64.0f)
+#define IMX258_MIN_GAIN_AEC     ( 1.0f )
 
 #define IMX258_SLAVE_ADDR	0x1A
-#define IMX258_DPHY_FREQ	1075000
 
 #define H8V8
 #define H1V1
@@ -59,26 +59,28 @@ static IsiSensorMode_t pimx258_mode_info[] = {
         .bitWidth     = 10,
         .bayerPattern = ISI_BPAT_RGGB,
         .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+        .dphyFreq = 1075000,
     },
     {
         .index         = 1,
         .size      = {
-            .boundsWidth  = 2016,
-            .boundsHeight = 1512,
+            .boundsWidth  = 1920,
+            .boundsHeight = 1080,
             .top           = 0,
             .left          = 0,
-            .width         = 2016,
-            .height        = 1512,
+            .width         = 1920,
+            .height        = 1080,
         },
         .aeInfo    = {
             .intTimeDelayFrame = 2,
             .gainDelayFrame = 2,
         },
-        .fps           = 17 * ISI_FPS_QUANTIZE,
+        .fps           = 30 * ISI_FPS_QUANTIZE,
         .hdrMode      = ISI_SENSOR_MODE_LINEAR,
         .bitWidth     = 10,
         .bayerPattern = ISI_BPAT_RGGB,
         .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+        .dphyFreq = 500000,
     },
 };
 
@@ -179,7 +181,7 @@ static RESULT IMX258_IsiGetCapsIss(IsiSensorHandle_t handle, IsiCaps_t *pCaps)
     pCaps->resolution.height = pIMX258Ctx->sensorMode.size.height;
     pCaps->mipiLanes         = ISI_MIPI_4LANES;
     pCaps->vinType           = ISI_ITF_TYPE_MIPI;
-    pCaps->dphyFreq          = IMX258_DPHY_FREQ;
+    pCaps->dphyFreq          = pIMX258Ctx->sensorMode.dphyFreq;
 
     if (pCaps->bitWidth == 10) {
         pCaps->mipiMode      = ISI_FORMAT_RAW_10;
@@ -276,6 +278,7 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
 {
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     RESULT result = RET_SUCCESS;
+    uint32_t again = 0;
 
     TRACE(IMX258_DEBUG,  "%s (enter)\n", __func__);
 
@@ -297,7 +300,7 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
         }
     }
 
-	TRACE(IMX258_DEBUG, "%s SensorDefaultMode.index = %d\n", __func__, SensorDefaultMode->index);
+    TRACE(IMX258_DEBUG, "%s SensorDefaultMode.index = %d\n", __func__, SensorDefaultMode->index);
 
     if (SensorDefaultMode != NULL) {
         switch(SensorDefaultMode->index) {
@@ -307,13 +310,13 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
                 }
             break;
         case 1:
-            for (int i = 0; i<sizeof(IMX258_REG_3840_LANE2) / sizeof(IMX258_REG_3840_LANE2[0]); i++) {
-                    IMX258_IsiWriteRegIss(handle, IMX258_REG_3840_LANE2[i][0], IMX258_REG_3840_LANE2[i][1]);
+            for (int i = 0; i<sizeof(IMX258_REG_1920) / sizeof(IMX258_REG_1920[0]); i++) {
+                    IMX258_IsiWriteRegIss(handle, IMX258_REG_1920[i][0], IMX258_REG_1920[i][1]);
                 }
             break;
         case 2:
-            for (int i = 0; i<sizeof(IMX258_REG_1920) / sizeof(IMX258_REG_1920[0]); i++) {
-                    IMX258_IsiWriteRegIss(handle, IMX258_REG_1920[i][0], IMX258_REG_1920[i][1]);
+            for (int i = 0; i<sizeof(IMX258_REG_3840_LANE2) / sizeof(IMX258_REG_3840_LANE2[0]); i++) {
+                    IMX258_IsiWriteRegIss(handle, IMX258_REG_3840_LANE2[i][0], IMX258_REG_3840_LANE2[i][1]);
                 }
             break;
         case 3:
@@ -332,10 +335,13 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
         return (RET_NULL_POINTER);
     }
 
-	TRACE(IMX258_DEBUG,  "%s pIMX258Ctx->sensorMode.index = %d\n", __func__, pIMX258Ctx->sensorMode.index);
-			pIMX258Ctx->VtPixClkFreq     = 126880000.0f;
-			pIMX258Ctx->LineLengthPck    =  0x14E8;//HTS[0x0342,0x0343]
-            pIMX258Ctx->aecCurGain          = 1.0;
+    TRACE(IMX258_DEBUG,  "%s pIMX258Ctx->sensorMode.index = %d\n", __func__, pIMX258Ctx->sensorMode.index);
+    pIMX258Ctx->VtPixClkFreq     = 126880000.0f;
+    pIMX258Ctx->LineLengthPck    = 0x14E8;//HTS[0x0342,0x0343]
+    /* set the default gain to 16, this will ensure we get a decent raw capture.
+     * For ISP post processed formats, the AE feature will kick in and correct the gain */
+    pIMX258Ctx->aecCurGain       = 16.0;
+
 
     switch(pIMX258Ctx->sensorMode.index) {
         case 0:
@@ -346,17 +352,16 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pIMX258Ctx->minIntegrationLine  = 4;
             pIMX258Ctx->aecMaxGain          = 128;
             pIMX258Ctx->aecMinGain          = 1.0;
-            pIMX258Ctx->aecCurGain          = 1.0;
             pIMX258Ctx->aGain.min           = 1.0;
-            pIMX258Ctx->aGain.max           = 16.0;
+            pIMX258Ctx->aGain.max           = 128.0;
             pIMX258Ctx->aGain.step          = (1.0f/256.0f);
             pIMX258Ctx->dGain.min           = 1.0;
-            pIMX258Ctx->dGain.max           = 8;
+            pIMX258Ctx->dGain.max           = 1.0;
             pIMX258Ctx->dGain.step          = (1.0f/256.0f);
             break;
         case 1:
-            pIMX258Ctx->oneLineExpTime      = 0.00003556;
-            pIMX258Ctx->frameLengthLines    = 0x65A;
+            pIMX258Ctx->oneLineExpTime      = 0.00001876;
+            pIMX258Ctx->frameLengthLines    = 0x4BC;
             pIMX258Ctx->curFrameLengthLines = pIMX258Ctx->frameLengthLines;
             pIMX258Ctx->maxIntegrationLine  = pIMX258Ctx->curFrameLengthLines - 8;
             pIMX258Ctx->minIntegrationLine  = 4;
@@ -370,8 +375,8 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pIMX258Ctx->dGain.step          = (1.0f/256.0f);
             break;
         case 2:
-            pIMX258Ctx->oneLineExpTime      = 0.00001876;
-            pIMX258Ctx->frameLengthLines    = 0x6F0;
+            pIMX258Ctx->oneLineExpTime      = 0.00003556;
+            pIMX258Ctx->frameLengthLines    = 0x65A;
             pIMX258Ctx->curFrameLengthLines = pIMX258Ctx->frameLengthLines;
             pIMX258Ctx->maxIntegrationLine  = pIMX258Ctx->frameLengthLines -8 ;
             pIMX258Ctx->minIntegrationLine  = 4;
@@ -404,6 +409,17 @@ static RESULT IMX258_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             return RET_NOTSUPP;
             break;
     }
+
+    // TODO Fix hardcodings, digital gain also needs to be taken care
+    again = 512-512/pIMX258Ctx->aecCurGain;
+    if(again >= 480) {
+        again = 480;
+    }
+
+    IMX258_IsiWriteRegIss(handle, 0x0104, 0x01);
+    result |= IMX258_IsiWriteRegIss(handle, 0x0204, (again >> 8) & 0xff);
+    result |= IMX258_IsiWriteRegIss(handle, 0x0205, again & 0xff );
+    IMX258_IsiWriteRegIss(handle, 0x0104, 0x00);
 
     pIMX258Ctx->maxFps  = pIMX258Ctx->sensorMode.fps;
     pIMX258Ctx->minFps  = 1 * ISI_FPS_QUANTIZE;
@@ -580,29 +596,53 @@ RESULT IMX258_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
 {
     RESULT result = RET_SUCCESS;
     TRACE(IMX258_DEBUG, "%s: (enter)\n", __func__);
-    uint32_t again = 0;
+    uint32_t again = 0, dgain = 0;
+    float aGain_val = 0.0f, Gain = 0.0f, NewGain = 0.0f;
 
     IMX258_Context_t *pIMX258Ctx = (IMX258_Context_t *) handle;
     if (pIMX258Ctx == NULL || pIMX258Ctx->isiCtx.halI2cHandle == NULL) {
         return RET_NULL_POINTER;
     }
 
-	again = 512-512/pSensorAGain->gain[ISI_LINEAR_PARAS];
-	if(again >= 480) {
-		again = 480;
-	}
+    NewGain = pSensorAGain->gain[ISI_LINEAR_PARAS];
 
-	IMX258_IsiWriteRegIss(handle, 0x0104, 0x01);
+    if( NewGain < pIMX258Ctx->aecMinGain ) NewGain = pIMX258Ctx->aecMinGain;
+    if( NewGain > pIMX258Ctx->aecMaxGain ) NewGain = pIMX258Ctx->aecMaxGain;
+
+    Gain = NewGain;
+    if (Gain < IMX258_MIN_GAIN_AEC)
+        Gain = IMX258_MIN_GAIN_AEC;
+    if(Gain > IMX258_MaxAGain) {
+        again = 480;
+        aGain_val = IMX258_MaxAGain;
+    } else {
+        again = 512-512/Gain;
+        aGain_val = Gain;
+    }
+    Gain = ((float)(Gain/aGain_val)*256.0f);
+    dgain = (uint32_t)(Gain);
+
+    TRACE(IMX258_DEBUG, "%s: NewGain=%f, Gain=%f, Again=%d, dGain=%d\n",
+             NewGain, Gain, again, dgain);
+
+    IMX258_IsiWriteRegIss(handle, 0x0104, 0x01);
 #ifdef  H1V1
-    result |= IMX258_IsiWriteRegIss(handle, 0x0204, (again >> 8) & 0xff);
-    result |= IMX258_IsiWriteRegIss(handle, 0x0205, again & 0xff );
-#endif
-	IMX258_IsiWriteRegIss(handle, 0x0104, 0x00);
+    result |= IMX258_IsiWriteRegIss(handle, 0x0204, ((again & 0xff00) >> 8));
+    result |= IMX258_IsiWriteRegIss(handle, 0x0205, again & 0x00ff);
 
-    TRACE(IMX258_DEBUG, "Set Again %d NewGain %f\n",
-			again, pSensorAGain->gain[ISI_LINEAR_PARAS]);
+    result |= IMX258_IsiWriteRegIss(handle, 0x020e, ((dgain & 0x0F00) >> 8));
+    result |= IMX258_IsiWriteRegIss(handle, 0x020f, dgain & 0x00FF);
+    result |= IMX258_IsiWriteRegIss(handle, 0x0210, ((dgain & 0x0F00) >> 8));
+    result |= IMX258_IsiWriteRegIss(handle, 0x0211, dgain & 0x00FF);
+    result |= IMX258_IsiWriteRegIss(handle, 0x0212, ((dgain & 0x0F00) >> 8));
+    result |= IMX258_IsiWriteRegIss(handle, 0x0213, dgain & 0x00FF);
+    result |= IMX258_IsiWriteRegIss(handle, 0x0214, ((dgain & 0x0F00) >> 8));
+    result |= IMX258_IsiWriteRegIss(handle, 0x0215, dgain & 0x00FF);
+#endif
+    IMX258_IsiWriteRegIss(handle, 0x0104, 0x00);
+
     pIMX258Ctx->curAgain = pSensorAGain->gain[ISI_LINEAR_PARAS];
-    pIMX258Ctx->aecCurGain = pSensorAGain->gain[ISI_LINEAR_PARAS];
+    pIMX258Ctx->aecCurGain = ((float)(aGain_val*dgain)/256.0f);
 
     TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
@@ -640,7 +680,7 @@ RESULT IMX258_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorD
 	IMX258_IsiWriteRegIss(handle, 0x0104, 0x00);
 
 	pIMX258Ctx->curDgain = pSensorDGain->gain[ISI_LINEAR_PARAS];
-    TRACE(IMX258_DEBUG, "Set Dgain %d NewGain %f\n",
+    TRACE(IMX258_DEBUG, "%s: Set Dgain %d NewGain %f\n",
 			dgain, pSensorDGain->gain[ISI_LINEAR_PARAS]);
 
 	TRACE(IMX258_DEBUG,  "%s: (exit)\n", __func__);

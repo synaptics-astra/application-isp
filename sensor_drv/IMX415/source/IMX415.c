@@ -24,7 +24,7 @@ CREATE_TRACER( IMX415_REG_DEBUG, "IMX415: ", INFO, 1);
 
 
 #define IMX415_SLAVE_ADDR	0x1A
-#define IMX415_DPHY_FREQ	891000
+//#define IMX415_DPHY_FREQ	891000
 
 #define H8V8
 #define H1V1
@@ -52,6 +52,28 @@ static IsiSensorMode_t pimx415_mode_info[] = {
         .bitWidth     = 12,
         .bayerPattern = ISI_BPAT_GBRG,
         .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+        .dphyFreq = 891000,
+    },
+    {
+        .index         = 1,
+        .size      = {
+            .boundsWidth  = 1920,
+            .boundsHeight = 1080,
+            .top           = 0,
+            .left          = 0,
+            .width         = 1920,
+            .height        = 1080,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 2,
+            .gainDelayFrame = 2,
+        },
+        .fps           = 30 * ISI_FPS_QUANTIZE,
+        .hdrMode      = ISI_SENSOR_MODE_LINEAR,
+        .bitWidth     = 12,
+        .bayerPattern = ISI_BPAT_GBRG,
+        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+        .dphyFreq = 891000,
     },
 };
 
@@ -152,7 +174,7 @@ static RESULT IMX415_IsiGetCapsIss(IsiSensorHandle_t handle, IsiCaps_t *pCaps)
     pCaps->resolution.height = pIMX415Ctx->sensorMode.size.height;
     pCaps->mipiLanes         = ISI_MIPI_4LANES;
     pCaps->vinType           = ISI_ITF_TYPE_MIPI;
-    pCaps->dphyFreq          = IMX415_DPHY_FREQ;
+    pCaps->dphyFreq          = pIMX415Ctx->sensorMode.dphyFreq;
 
     if (pCaps->bitWidth == 10) {
         pCaps->mipiMode      = ISI_FORMAT_RAW_10;
@@ -255,6 +277,7 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     RESULT result = RET_SUCCESS;
     uint16_t regVal;
+    uint32_t again = 0;
 
     TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
 
@@ -288,13 +311,13 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
                 }
             break;
         case 1:
-            for (int i = 0; i<sizeof(IMX415_REG_3840_LANE2) / sizeof(IMX415_REG_3840_LANE2[0]); i++) {
-                    IMX415_IsiWriteRegIss(handle, IMX415_REG_3840_LANE2[i][0], IMX415_REG_3840_LANE2[i][1]);
+            for (int i = 0; i<sizeof(IMX415_REG_1920) / sizeof(IMX415_REG_1920[0]); i++) {
+                    IMX415_IsiWriteRegIss(handle, IMX415_REG_1920[i][0], IMX415_REG_1920[i][1]);
                 }
             break;
         case 2:
-            for (int i = 0; i<sizeof(IMX415_REG_1920) / sizeof(IMX415_REG_1920[0]); i++) {
-                    IMX415_IsiWriteRegIss(handle, IMX415_REG_1920[i][0], IMX415_REG_1920[i][1]);
+            for (int i = 0; i<sizeof(IMX415_REG_3840_LANE2) / sizeof(IMX415_REG_3840_LANE2[0]); i++) {
+                    IMX415_IsiWriteRegIss(handle, IMX415_REG_3840_LANE2[i][0], IMX415_REG_3840_LANE2[i][1]);
                 }
             break;
         default:
@@ -310,8 +333,10 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
 
     TRACE(IMX415_DEBUG,  "%s pIMX415Ctx->sensorMode.index = %d\n", __func__, pIMX415Ctx->sensorMode.index);
     pIMX415Ctx->VtPixClkFreq     = 126880000.0f;
-    pIMX415Ctx->LineLengthPck    =  0x14E8;
-    pIMX415Ctx->aecCurGain          = 1.0;
+    pIMX415Ctx->LineLengthPck    = 0x14E8;
+    /* set the default gain to 16, this will ensure we get a decent raw capture.
+     * For ISP post processed formats, the AE feature will kick in and correct the gain */
+    pIMX415Ctx->aecCurGain       = 16.0;
 
     switch(pIMX415Ctx->sensorMode.index) {
         case 0:
@@ -322,7 +347,6 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pIMX415Ctx->minIntegrationLine  = 4;
             pIMX415Ctx->aecMaxGain          = 72;
             pIMX415Ctx->aecMinGain          = 1.0;
-            pIMX415Ctx->aecCurGain          = 1.0;
             pIMX415Ctx->aGain.min           = 1.0;
             pIMX415Ctx->aGain.max           = 30.0;
             pIMX415Ctx->aGain.step          = (1.0f/3.0f);
@@ -331,8 +355,8 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pIMX415Ctx->dGain.step          = (1.0f/3.0f);
             break;
         case 1:
-            pIMX415Ctx->oneLineExpTime      = 0.00003556;
-            pIMX415Ctx->frameLengthLines    = 0x65A;
+            pIMX415Ctx->oneLineExpTime      = 0.00001876;
+            pIMX415Ctx->frameLengthLines    = 0x6F0;
             pIMX415Ctx->curFrameLengthLines = pIMX415Ctx->frameLengthLines;
             pIMX415Ctx->maxIntegrationLine  = pIMX415Ctx->curFrameLengthLines - 8;
             pIMX415Ctx->minIntegrationLine  = 4;
@@ -346,8 +370,8 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pIMX415Ctx->dGain.step          = (1.0f/256.0f);
             break;
         case 2:
-            pIMX415Ctx->oneLineExpTime      = 0.00001876;
-            pIMX415Ctx->frameLengthLines    = 0x6F0;
+            pIMX415Ctx->oneLineExpTime      = 0.00003556;
+            pIMX415Ctx->frameLengthLines    = 0x65A;
             pIMX415Ctx->curFrameLengthLines = pIMX415Ctx->frameLengthLines;
             pIMX415Ctx->maxIntegrationLine  = pIMX415Ctx->frameLengthLines -8 ;
             pIMX415Ctx->minIntegrationLine  = 4;
@@ -366,10 +390,13 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             break;
     }
 
+    again = (pIMX415Ctx->aecCurGain * 10) / 3;
+    IMX415_IsiWriteRegIss(handle, 0x3090, again);
+
     pIMX415Ctx->maxFps  = pIMX415Ctx->sensorMode.fps;
     pIMX415Ctx->minFps  = 1 * ISI_FPS_QUANTIZE;
     pIMX415Ctx->currFps = pIMX415Ctx->maxFps;
-  
+
     TRACE(IMX415_DEBUG, "%s: IMX415 System-Reset executed\n", __func__);
     osSleep(100);
 
@@ -633,9 +660,9 @@ RESULT IMX415_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_
     expLine = MIN(pIMX415Ctx->maxIntegrationLine, MAX(pIMX415Ctx->minIntegrationLine, expLine));
     TRACE(IMX415_DEBUG, "%s: set expLine = 0x%04x\n", __func__, expLine);
 
-	IMX415_IsiWriteRegIss(handle, 0x3050, (expLine & 0x00FF));
-	IMX415_IsiWriteRegIss(handle, 0x3051, ((expLine & 0xFF00) >> 8));
-	IMX415_IsiWriteRegIss(handle, 0x3052, ((expLine & 0x0F0000) >> 16));
+    IMX415_IsiWriteRegIss(handle, 0x3050, (expLine & 0x00FF));
+    IMX415_IsiWriteRegIss(handle, 0x3051, ((expLine & 0xFF00) >> 8));
+    IMX415_IsiWriteRegIss(handle, 0x3052, ((expLine & 0x0F0000) >> 16));
     pIMX415Ctx->aecCurIntegrationTime = expLine * pIMX415Ctx->oneLineExpTime;
 
     TRACE(IMX415_DEBUG, "%s: set IntTime = %f\n", __func__, pIMX415Ctx->aecCurIntegrationTime);

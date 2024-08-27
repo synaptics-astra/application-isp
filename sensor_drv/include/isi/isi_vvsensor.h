@@ -194,6 +194,9 @@ typedef struct IsiSensorMode_s {
     uint32_t                 bitWidth;
     void *                   pregData;
     uint32_t                 regCount;
+#ifdef DOLPHIN
+    uint32_t                 dphyFreq;
+#endif
 }IsiSensorMode_t;
 
 typedef struct IsiSensorEnumMode_s {

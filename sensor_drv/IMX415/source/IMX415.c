@@ -18,16 +18,29 @@ CREATE_TRACER( IMX415_DEBUG,     "IMX415: ", INFO, 1);
 CREATE_TRACER( IMX415_REG_INFO , "IMX415: ", INFO, 1);
 CREATE_TRACER( IMX415_REG_DEBUG, "IMX415: ", INFO, 1);
 
-#define IMX415_MIN_GAIN_STEP            ( 10.0f/3.0f )
-#define IMX415_MAX_REG_VAL              ( 72 )
-#define IMX415_MIN_REG_VAL              ( 1 )
+#define IMX415_MIN_REG_STEP             ( 10.0f/3.0f )
+#define IMX415_MAX_REG_VAL              ( 240 )
+#define IMX415_MIN_REG_VAL              ( 4 )
 
+#define IMX415_MIN_AEC_STEP             ( 1.0f/3.0f )
+#define IMX415_MAX_AEC_VAL              ( 72 )
+#define IMX415_MIN_AEC_VAL              ( 1 )
 
-#define IMX415_SLAVE_ADDR	0x1A
-//#define IMX415_DPHY_FREQ	891000
+#define IMX415_MIN_AGAIN_STEP           IMX415_MIN_AEC_STEP
+#define IMX415_MAX_AGAIN_VAL            IMX415_MAX_AEC_VAL
+#define IMX415_MIN_AGAIN_VAL            IMX415_MIN_AEC_VAL
 
-#define H8V8
-#define H1V1
+#define IMX415_FRAME_PERIOD             ( 0x08CA )      /* Ref DOC - page 59 */
+#define IMX415_H_PERIOD_30FPS           ( 0.0000149f )  /* Ref DOC - Page 59 */
+#define IMX415_T_OFFSET_12B             ( 0.00000268f ) /* Ref DOC - Page 70 */
+
+#define IMX415_MIN_INTEGRATION_TIME     ( 0.0001 )
+#define IMX415_MAX_INTEGRATION_TIME     ( 0.032 )
+
+#define IMX415_MIN_STORAGE_TIME         ( 8 )
+#define IMX415_MAX_STORAGE_TIME         ( 0x008CA - 4 )
+
+#define IMX415_SLAVE_ADDR               ( 0x1A )
 
 /*****************************************************************************
  *Sensor Info
@@ -77,10 +90,11 @@ static IsiSensorMode_t pimx415_mode_info[] = {
     },
 };
 
-static RESULT IMX415_IsiReadRegIss(IsiSensorHandle_t handle, const uint16_t addr, uint16_t *pValue)
+static RESULT IMX415_IsiReadRegIss(IsiSensorHandle_t handle,
+        const uint16_t addr, uint16_t *pValue)
 {
     RESULT result = RET_SUCCESS;
-    TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (enter)\n", __func__);
 
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     if (pIMX415Ctx == NULL || pIMX415Ctx->isiCtx.halI2cHandle == NULL) {
@@ -93,14 +107,15 @@ static RESULT IMX415_IsiReadRegIss(IsiSensorHandle_t handle, const uint16_t addr
         return (RET_FAILURE);
     }
 
-    TRACE(IMX415_DEBUG,  "%s (exit) result = %d\n", __func__, result);
+    TRACE(IMX415_DEBUG, "%s (exit) result = %d\n", __func__, result);
     return (result);
 }
 
-static RESULT IMX415_IsiWriteRegIss(IsiSensorHandle_t handle, const uint16_t addr, const uint16_t value)
+static RESULT IMX415_IsiWriteRegIss(IsiSensorHandle_t handle, const uint16_t addr,
+        const uint16_t value)
 {
     RESULT result = RET_SUCCESS;
-    TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (enter)\n", __func__);
 
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     if (pIMX415Ctx == NULL || pIMX415Ctx->isiCtx.halI2cHandle == NULL) {
@@ -113,13 +128,13 @@ static RESULT IMX415_IsiWriteRegIss(IsiSensorHandle_t handle, const uint16_t add
         return (RET_FAILURE);
     }
 
-    TRACE(IMX415_DEBUG,  "%s (exit) result = %d\n", __func__, result);
+    TRACE(IMX415_DEBUG, "%s (exit) result = %d\n", __func__, result);
     return (result);
 }
 
 static RESULT IMX415_IsiGetModeIss(IsiSensorHandle_t handle, IsiSensorMode_t *pMode)
 {
-    TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (enter)\n", __func__);
 
     const IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     if (pIMX415Ctx == NULL) {
@@ -127,13 +142,13 @@ static RESULT IMX415_IsiGetModeIss(IsiSensorHandle_t handle, IsiSensorMode_t *pM
     }
     memcpy(pMode, &(pIMX415Ctx->sensorMode), sizeof(pIMX415Ctx->sensorMode));
 
-    TRACE(IMX415_DEBUG,  "%s (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (exit)\n", __func__);
     return ( RET_SUCCESS );
 }
 
 static  RESULT IMX415_IsiEnumModeIss(IsiSensorHandle_t handle, IsiSensorEnumMode_t *pEnumMode)
 {
-    TRACE(IMX415_DEBUG,  "%s (enter) with index %d\n", __func__, pEnumMode->index);
+    TRACE(IMX415_DEBUG, "%s (enter) with index %d\n", __func__, pEnumMode->index);
     const IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     if (pIMX415Ctx == NULL) {
         return RET_NULL_POINTER;
@@ -145,7 +160,7 @@ static  RESULT IMX415_IsiEnumModeIss(IsiSensorHandle_t handle, IsiSensorEnumMode
     for (uint32_t i = 0; i < (sizeof(pimx415_mode_info)/sizeof(pimx415_mode_info[0])); i++) {
         if (pimx415_mode_info[i].index == pEnumMode->index) {
             memcpy(&pEnumMode->mode, &pimx415_mode_info[i],sizeof(IsiSensorMode_t));
-            TRACE(IMX415_DEBUG,  "%s (exit)\n", __func__);
+            TRACE(IMX415_DEBUG, "%s (exit)\n", __func__);
             return RET_SUCCESS;
         }
     }
@@ -159,7 +174,7 @@ static RESULT IMX415_IsiGetCapsIss(IsiSensorHandle_t handle, IsiCaps_t *pCaps)
 
     RESULT result = RET_SUCCESS;
 
-    TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (enter)\n", __func__);
 
     if (pIMX415Ctx == NULL) return (RET_WRONG_HANDLE);
 
@@ -186,13 +201,13 @@ static RESULT IMX415_IsiGetCapsIss(IsiSensorHandle_t handle, IsiCaps_t *pCaps)
         pCaps->mipiMode      = ISI_MIPI_OFF;
     }
 
-    TRACE(IMX415_DEBUG,  "%s (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (exit)\n", __func__);
     return (result);
 }
 
 static RESULT IMX415_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorHandle_t *pHandle) {
     RESULT result = RET_SUCCESS;
-    TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (enter)\n", __func__);
 
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) malloc(sizeof(IMX415_Context_t));
     if (!pIMX415Ctx) {
@@ -218,7 +233,8 @@ static RESULT IMX415_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
     sccbConfig.addrByte  = 2;
     sccbConfig.dataByte  = 1;
 
-    pIMX415Ctx->isiCtx.halI2cHandle = HalI2cOpen(busId, sccbConfig.slaveAddr, sccbConfig.addrByte, sccbConfig.dataByte);
+    pIMX415Ctx->isiCtx.halI2cHandle = HalI2cOpen(busId, sccbConfig.slaveAddr,
+            sccbConfig.addrByte, sccbConfig.dataByte);
     if (pIMX415Ctx->isiCtx.halI2cHandle == NULL) {
         TRACE(IMX415_ERROR, "%s: hal I2c open dev error!\n", __func__);
         return (RET_NULL_POINTER);
@@ -232,7 +248,7 @@ static RESULT IMX415_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     *pHandle = (IsiSensorHandle_t) pIMX415Ctx;
 
-    TRACE(IMX415_DEBUG,  "%s (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -241,20 +257,25 @@ static RESULT IMX415_AecSetModeParameters(IsiSensorHandle_t handle, IMX415_Conte
     uint32_t regVal = 0;
     uint16_t value = 0;
     RESULT result = RET_SUCCESS;
-    TRACE(IMX415_DEBUG,  "%s%s: (enter)\n", __func__,pIMX415Ctx->isAfpsRun ? "(AFPS)" : "");
+    TRACE(IMX415_DEBUG, "%s%s: (enter)\n", __func__, pIMX415Ctx->isAfpsRun ? "(AFPS)" : "");
 
-    pIMX415Ctx->aecIntegrationTimeIncrement = pIMX415Ctx->oneLineExpTime;
-    pIMX415Ctx->aecMinIntegrationTime       = pIMX415Ctx->oneLineExpTime * pIMX415Ctx->minIntegrationLine;
-    pIMX415Ctx->aecMaxIntegrationTime       = pIMX415Ctx->oneLineExpTime * pIMX415Ctx->maxIntegrationLine;
+    pIMX415Ctx->aecMinIntegrationTime = (1
+            * ((float)pIMX415Ctx->LineLengthPck) )
+        / 4 / pIMX415Ctx->VtPixClkFreq;
+    pIMX415Ctx->aecMaxIntegrationTime = ( ((float)pIMX415Ctx->frameLengthLines)
+            * ((float)pIMX415Ctx->LineLengthPck) )
+        / 4 / pIMX415Ctx->VtPixClkFreq;
+    pIMX415Ctx->aecIntegrationTimeIncrement =
+        (float)pIMX415Ctx->LineLengthPck / (float)pIMX415Ctx->VtPixClkFreq;
 
-    TRACE(IMX415_DEBUG, "%s%s: AecMaxIntegrationTime = %f \n", __func__, pIMX415Ctx->isAfpsRun ? "(AFPS)" : "",pIMX415Ctx->aecMaxIntegrationTime);
+    TRACE(IMX415_DEBUG, "%s%s: AecMaxIntegrationTime = %f \n", __func__,
+            pIMX415Ctx->isAfpsRun ? "(AFPS)" : "",pIMX415Ctx->aecMaxIntegrationTime);
 
-    pIMX415Ctx->aecGainIncrement = IMX415_MIN_GAIN_STEP;
+    pIMX415Ctx->aecGainIncrement = IMX415_MIN_AEC_STEP;
 
     //reflects the state of the sensor registers, must equal default settings
     pIMX415Ctx->oldGain               = 0;
     pIMX415Ctx->oldIntegrationTime    = 0;
-
 
     IMX415_IsiReadRegIss(handle, 0x3050, &value);
     regVal = (value & 0xff);
@@ -264,12 +285,52 @@ static RESULT IMX415_AecSetModeParameters(IsiSensorHandle_t handle, IMX415_Conte
     regVal = regVal | (value & 0xf) << 16;
     pIMX415Ctx->aecCurIntegrationTime = regVal * pIMX415Ctx->oneLineExpTime;
 
-    //pIMX415Ctx->aecCurIntegrationTime = 0.0f;
-    //pIMX415Ctx->aecCurGain = 1;
-
-    TRACE(IMX415_DEBUG, "%s%s: (exit)\n", __func__,pIMX415Ctx->isAfpsRun ? "(AFPS)" : "");
+    TRACE(IMX415_DEBUG, "%s%s: (exit)\n", __func__, pIMX415Ctx->isAfpsRun ? "(AFPS)" : "");
 
     return (result);
+}
+
+static void set_gain_value(IsiSensorHandle_t handle,
+        IMX415_Context_t *pIMX415Ctx, float NewGain)
+{
+    float    Gain = 0.0f;
+    uint32_t uiGain = 0U;
+
+    if (NewGain < pIMX415Ctx->aecMinGain) NewGain = pIMX415Ctx->aecMinGain;
+    if (NewGain > pIMX415Ctx->aecMaxGain) NewGain = pIMX415Ctx->aecMaxGain;
+
+    Gain = ((float)(NewGain * IMX415_MIN_REG_STEP));
+    uiGain = (uint32_t)(Gain);
+
+    if (Gain != pIMX415Ctx->oldGain) {
+        if (uiGain < IMX415_MIN_REG_VAL) uiGain = IMX415_MIN_REG_VAL;
+        if (uiGain > IMX415_MAX_REG_VAL) uiGain = IMX415_MAX_REG_VAL;
+
+        IMX415_IsiWriteRegIss(handle, 0x3090, uiGain & 0x00FF);
+        IMX415_IsiWriteRegIss(handle, 0x3091, ((uiGain & 0x0100) >> 8));
+
+        pIMX415Ctx->oldGain = Gain;
+    }
+}
+
+static float get_gain_value(IsiSensorHandle_t handle,
+        IMX415_Context_t *pIMX415Ctx)
+{
+    uint32_t uiGain = 0U;
+    uint16_t lowByte = 0U;
+    uint16_t highByte = 0U;
+    float Gain = 0.0f;
+
+    IMX415_IsiReadRegIss(handle, 0x3090, &lowByte);
+    IMX415_IsiReadRegIss(handle, 0x3091, &highByte);
+
+    uiGain = (highByte << 8) | (lowByte & 0x00FF);
+    Gain = (float)(uiGain) / IMX415_MIN_REG_STEP;
+
+    if (Gain < pIMX415Ctx->aecMinGain) Gain = pIMX415Ctx->aecMinGain;
+    if (Gain > pIMX415Ctx->aecMaxGain) Gain = pIMX415Ctx->aecMaxGain;
+
+    return Gain;
 }
 
 static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
@@ -277,12 +338,11 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     RESULT result = RET_SUCCESS;
     uint16_t regVal;
-    uint32_t again = 0;
 
-    TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (enter)\n", __func__);
 
     if (!pIMX415Ctx) {
-        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
+        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n", __func__);
         return (RET_WRONG_HANDLE);
     }
 
@@ -315,13 +375,9 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
                     IMX415_IsiWriteRegIss(handle, IMX415_REG_1920[i][0], IMX415_REG_1920[i][1]);
                 }
             break;
-        case 2:
-            for (int i = 0; i<sizeof(IMX415_REG_3840_LANE2) / sizeof(IMX415_REG_3840_LANE2[0]); i++) {
-                    IMX415_IsiWriteRegIss(handle, IMX415_REG_3840_LANE2[i][0], IMX415_REG_3840_LANE2[i][1]);
-                }
-            break;
         default:
-            TRACE(IMX415_DEBUG,  "%s:not support sensor mode %d\n", __func__,pIMX415Ctx->sensorMode.index);
+            TRACE(IMX415_DEBUG, "%s:not support sensor mode %d\n",
+                    __func__, pIMX415Ctx->sensorMode.index);
             return RET_NOTSUPP;
        }
 
@@ -331,7 +387,8 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
         return (RET_NULL_POINTER);
     }
 
-    TRACE(IMX415_DEBUG,  "%s pIMX415Ctx->sensorMode.index = %d\n", __func__, pIMX415Ctx->sensorMode.index);
+    TRACE(IMX415_DEBUG, "%s pIMX415Ctx->sensorMode.index = %d\n",
+            __func__, pIMX415Ctx->sensorMode.index);
     pIMX415Ctx->VtPixClkFreq     = 126880000.0f;
     pIMX415Ctx->LineLengthPck    = 0x14E8;
     /* set the default gain to 16, this will ensure we get a decent raw capture.
@@ -343,16 +400,16 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pIMX415Ctx->oneLineExpTime      = 0.000010545;
             pIMX415Ctx->frameLengthLines    = 0xC56;
             pIMX415Ctx->curFrameLengthLines = pIMX415Ctx->frameLengthLines;
-            pIMX415Ctx->maxIntegrationLine  = pIMX415Ctx->frameLengthLines - 8 ;
+            pIMX415Ctx->maxIntegrationLine  = pIMX415Ctx->frameLengthLines - 8;
             pIMX415Ctx->minIntegrationLine  = 4;
-            pIMX415Ctx->aecMaxGain          = 72;
-            pIMX415Ctx->aecMinGain          = 1.0;
-            pIMX415Ctx->aGain.min           = 1.0;
-            pIMX415Ctx->aGain.max           = 30.0;
-            pIMX415Ctx->aGain.step          = (1.0f/3.0f);
+            pIMX415Ctx->aecMaxGain          = IMX415_MAX_AEC_VAL;
+            pIMX415Ctx->aecMinGain          = IMX415_MIN_AEC_VAL;
+            pIMX415Ctx->aGain.min           = IMX415_MIN_AGAIN_VAL;
+            pIMX415Ctx->aGain.max           = IMX415_MAX_AGAIN_VAL;
+            pIMX415Ctx->aGain.step          = IMX415_MIN_AGAIN_STEP;
             pIMX415Ctx->dGain.min           = 1.0;
-            pIMX415Ctx->dGain.max           = 42;
-            pIMX415Ctx->dGain.step          = (1.0f/3.0f);
+            pIMX415Ctx->dGain.max           = 1.0;
+            pIMX415Ctx->dGain.step          = 1.0;
             break;
         case 1:
             pIMX415Ctx->oneLineExpTime      = 0.00001876;
@@ -360,38 +417,23 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pIMX415Ctx->curFrameLengthLines = pIMX415Ctx->frameLengthLines;
             pIMX415Ctx->maxIntegrationLine  = pIMX415Ctx->curFrameLengthLines - 8;
             pIMX415Ctx->minIntegrationLine  = 4;
-            pIMX415Ctx->aecMaxGain          = 128;
-            pIMX415Ctx->aecMinGain          = 1.0;
-            pIMX415Ctx->aGain.min           = 1.0;
-            pIMX415Ctx->aGain.max           = 16.0;
-            pIMX415Ctx->aGain.step          = (1.0f/256.0f);
+            pIMX415Ctx->aecMaxGain          = IMX415_MAX_AEC_VAL;
+            pIMX415Ctx->aecMinGain          = IMX415_MIN_AEC_VAL;
+            pIMX415Ctx->aGain.min           = IMX415_MIN_AGAIN_VAL;
+            pIMX415Ctx->aGain.max           = IMX415_MAX_AGAIN_VAL;
+            pIMX415Ctx->aGain.step          = IMX415_MIN_AGAIN_STEP;
             pIMX415Ctx->dGain.min           = 1.0;
-            pIMX415Ctx->dGain.max           = 8;
-            pIMX415Ctx->dGain.step          = (1.0f/256.0f);
-            break;
-        case 2:
-            pIMX415Ctx->oneLineExpTime      = 0.00003556;
-            pIMX415Ctx->frameLengthLines    = 0x65A;
-            pIMX415Ctx->curFrameLengthLines = pIMX415Ctx->frameLengthLines;
-            pIMX415Ctx->maxIntegrationLine  = pIMX415Ctx->frameLengthLines -8 ;
-            pIMX415Ctx->minIntegrationLine  = 4;
-            pIMX415Ctx->aecMaxGain          = 128;
-            pIMX415Ctx->aecMinGain          = 1.0;
-            pIMX415Ctx->aGain.min           = 1.0;
-            pIMX415Ctx->aGain.max           = 16.0;
-            pIMX415Ctx->aGain.step          = (1.0f/256.0f);
-            pIMX415Ctx->dGain.min           = 1.0;
-            pIMX415Ctx->dGain.max           = 8;
-            pIMX415Ctx->dGain.step          = (1.0f/256.0f);
+            pIMX415Ctx->dGain.max           = 1.0;
+            pIMX415Ctx->dGain.step          = 1.0;
             break;
         default:
-            TRACE(IMX415_DEBUG,  "%s:not support sensor mode %d\n", __func__,pIMX415Ctx->sensorMode.index);
+            TRACE(IMX415_DEBUG,  "%s:not support sensor mode %d\n",
+                    __func__, pIMX415Ctx->sensorMode.index);
             return RET_NOTSUPP;
             break;
     }
 
-    again = (pIMX415Ctx->aecCurGain * 10) / 3;
-    IMX415_IsiWriteRegIss(handle, 0x3090, again);
+    set_gain_value(handle, pIMX415Ctx, pIMX415Ctx->aecCurGain);
 
     pIMX415Ctx->maxFps  = pIMX415Ctx->sensorMode.fps;
     pIMX415Ctx->minFps  = 1 * ISI_FPS_QUANTIZE;
@@ -407,7 +449,7 @@ static RESULT IMX415_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
     }
 
     pIMX415Ctx->configured = BOOL_TRUE;
-    TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return 0;
 }
 
@@ -421,7 +463,7 @@ static RESULT IMX415_IsiCloseIss(IsiSensorHandle_t handle)
 
     (void)IMX415_IsiSetStreamingIss(pIMX415Ctx, BOOL_FALSE);
 
-    TRACE(IMX415_DEBUG,  "%s (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -429,7 +471,7 @@ static RESULT IMX415_IsiReleaseIss(IsiSensorHandle_t handle)
 {
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     RESULT result = RET_SUCCESS;
-    TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (enter)\n", __func__);
 
     if (pIMX415Ctx == NULL) return (RET_WRONG_HANDLE);
 
@@ -438,7 +480,8 @@ static RESULT IMX415_IsiReleaseIss(IsiSensorHandle_t handle)
 
     MEMSET(pIMX415Ctx, 0, sizeof(IMX415_Context_t));
     free(pIMX415Ctx);
-    TRACE(IMX415_DEBUG,  "%s (exit)\n", __func__);
+
+    TRACE(IMX415_DEBUG, "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -461,7 +504,7 @@ static RESULT IMX415_IsiCheckConnectionIss(IsiSensorHandle_t handle)
         return (RET_FAILURE);
     }
 
-    TRACE(IMX415_DEBUG,  "%s (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -471,7 +514,7 @@ static RESULT IMX415_IsiGetRevisionIss(IsiSensorHandle_t handle, uint32_t *pValu
     uint16_t regVal;
     uint32_t sensorId;
 
-    TRACE(IMX415_DEBUG,  "%s (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (enter)\n", __func__);
 
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     if (pIMX415Ctx == NULL || pIMX415Ctx->isiCtx.halI2cHandle == NULL) {
@@ -488,7 +531,7 @@ static RESULT IMX415_IsiGetRevisionIss(IsiSensorHandle_t handle, uint32_t *pValu
     sensorId |= (regVal & 0xff);
 
     *pValue = sensorId;
-    TRACE(IMX415_DEBUG,  "%s (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s (exit)\n", __func__);
     return (result);
 }
 
@@ -555,9 +598,10 @@ static RESULT IMX415_IsiGetAeBaseInfoIss(IsiSensorHandle_t handle, IsiAeBaseInfo
     pAeBaseInfo->aecGainStep    = pIMX415Ctx->aecGainIncrement;
     pAeBaseInfo->aecIntTimeStep = pIMX415Ctx->aecIntegrationTimeIncrement;
 
-    TRACE(IMX415_DEBUG, "%s: with gain %f and intg %f \n", __func__,  pAeBaseInfo->aecCurGain, pAeBaseInfo->aecCurIntTime);
+    TRACE(IMX415_DEBUG, "%s: with gain %f and intg %f \n", __func__,
+            pAeBaseInfo->aecCurGain, pAeBaseInfo->aecCurIntTime);
 
-    TRACE(IMX415_DEBUG, "%s: (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -565,22 +609,17 @@ RESULT IMX415_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
 {
     RESULT result = RET_SUCCESS;
     TRACE(IMX415_DEBUG, "%s: (enter)\n", __func__);
-    uint32_t again = 0;
 
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     if (pIMX415Ctx == NULL || pIMX415Ctx->isiCtx.halI2cHandle == NULL) {
         return RET_NULL_POINTER;
     }
-    again = (pSensorAGain->gain[ISI_LINEAR_PARAS] * 10) / 3;
 
-    IMX415_IsiWriteRegIss(handle, 0x3090, again);
+    set_gain_value(handle, pIMX415Ctx, pSensorAGain->gain[ISI_LINEAR_PARAS]);
+    pIMX415Ctx->aecCurGain = get_gain_value(handle, pIMX415Ctx);
+    TRACE(IMX415_DEBUG, "%s: AGain=%f\n", __func__, pIMX415Ctx->aecCurGain);
 
-    TRACE(IMX415_DEBUG, "Set Again %d NewGain %f\n",
-         again, pSensorAGain->gain[ISI_LINEAR_PARAS]);
-    pIMX415Ctx->curAgain = pSensorAGain->gain[ISI_LINEAR_PARAS];
-    pIMX415Ctx->aecCurGain = pSensorAGain->gain[ISI_LINEAR_PARAS];
-
-    TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -598,7 +637,7 @@ RESULT IMX415_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorD
     TRACE(IMX415_DEBUG, "Set Dgain %d NewGain %f\n",
          dgain, pSensorDGain->gain[ISI_LINEAR_PARAS]);
 
-    TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -609,7 +648,7 @@ RESULT IMX415_IsiGetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
     TRACE(IMX415_DEBUG,  "%s: (enter)\n", __func__);
 
     if (pIMX415Ctx == NULL) {
-        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
+        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n", __func__);
         return (RET_WRONG_HANDLE);
     }
 
@@ -617,9 +656,9 @@ RESULT IMX415_IsiGetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
         return (RET_NULL_POINTER);
     }
 
-    pSensorAGain->gain[ISI_LINEAR_PARAS] = pIMX415Ctx->curAgain;
+    pSensorAGain->gain[ISI_LINEAR_PARAS] = pIMX415Ctx->aecCurGain;
 
-    TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -627,10 +666,10 @@ RESULT IMX415_IsiGetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorD
 {
     const IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     RESULT result = RET_SUCCESS;
-    TRACE(IMX415_DEBUG,  "%s: (enter)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (enter)\n", __func__);
 
     if (pIMX415Ctx == NULL) {
-        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
+        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n", __func__);
         return (RET_WRONG_HANDLE);
     }
 
@@ -640,32 +679,83 @@ RESULT IMX415_IsiGetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorD
 
     pSensorDGain->gain[ISI_LINEAR_PARAS] = pIMX415Ctx->curDgain;
 
-    TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);
 }
 
-RESULT IMX415_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_t *pSensorIntTime)
+static void set_integration_time(void *handle, IMX415_Context_t *pIMX415Ctx,
+        float NewIntegrationTime) {
+
+    uint32_t StorageTime = 0UL;
+    float Tline = 0.0f;
+
+    if (NewIntegrationTime < IMX415_MIN_INTEGRATION_TIME)
+        NewIntegrationTime = IMX415_MIN_INTEGRATION_TIME;
+    if (NewIntegrationTime > IMX415_MAX_INTEGRATION_TIME)
+        NewIntegrationTime = IMX415_MAX_INTEGRATION_TIME;
+
+    Tline = (NewIntegrationTime - IMX415_T_OFFSET_12B) / IMX415_H_PERIOD_30FPS;
+    StorageTime = (uint32_t)(IMX415_FRAME_PERIOD - Tline);
+
+    if(StorageTime < IMX415_MIN_STORAGE_TIME)
+        StorageTime = IMX415_MIN_STORAGE_TIME;
+    if(StorageTime > IMX415_MAX_STORAGE_TIME)
+        StorageTime = IMX415_MAX_STORAGE_TIME;
+
+    if (NewIntegrationTime != pIMX415Ctx->oldIntegrationTime) {
+        IMX415_IsiWriteRegIss(handle, 0x3050, (StorageTime & 0x00FF));
+        IMX415_IsiWriteRegIss(handle, 0x3051, ((StorageTime & 0xFF00) >> 8));
+        IMX415_IsiWriteRegIss(handle, 0x3052, ((StorageTime & 0x0F0000) >> 16));
+
+        pIMX415Ctx->oldIntegrationTime = NewIntegrationTime;
+    }
+}
+
+static float get_integration_time(void *handle, IMX415_Context_t *pIMX415Ctx)
 {
+    uint32_t StorageTime = 0UL;
+    float IntegrationTime = 0.0f;
+    float Tline = 0.0f;
+    uint16_t reg_3050 = 0, reg_3051 = 0, reg_3052 = 0;
+
+    IMX415_IsiReadRegIss(handle, 0x3050, &reg_3050);
+    IMX415_IsiReadRegIss(handle, 0x3051, &reg_3051);
+    IMX415_IsiReadRegIss(handle, 0x3052, &reg_3052);
+
+    StorageTime = (reg_3052 << 16) | (reg_3051 << 8) | reg_3050;
+
+    if (StorageTime < IMX415_MIN_STORAGE_TIME)
+        StorageTime = IMX415_MIN_STORAGE_TIME;
+    if (StorageTime > IMX415_MAX_STORAGE_TIME)
+        StorageTime = IMX415_MAX_STORAGE_TIME;
+
+    Tline = IMX415_FRAME_PERIOD - (float)StorageTime;
+    IntegrationTime = (Tline * IMX415_H_PERIOD_30FPS) + IMX415_T_OFFSET_12B;
+
+    if (IntegrationTime < IMX415_MIN_INTEGRATION_TIME)
+        IntegrationTime = IMX415_MIN_INTEGRATION_TIME;
+    if (IntegrationTime > IMX415_MAX_INTEGRATION_TIME)
+        IntegrationTime = IMX415_MAX_INTEGRATION_TIME;
+
+    return IntegrationTime;
+}
+
+RESULT IMX415_IsiSetIntTimeIss(IsiSensorHandle_t handle,
+        const IsiSensorIntTime_t *pSensorIntTime)
+{
+    IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     RESULT result = RET_SUCCESS;
     TRACE(IMX415_DEBUG, "%s: (enter)\n", __func__);
-    IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
-    uint32_t expLine = 0;
 
     if (!pIMX415Ctx) {
-        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n", __func__);
+        TRACE(IMX415_ERROR,
+                "%s: Invalid sensor handle (NULL pointer detected)\n", __func__);
         return (RET_WRONG_HANDLE);
     }
 
-    expLine = pSensorIntTime->intTime[ISI_LINEAR_PARAS] / pIMX415Ctx->oneLineExpTime;
-    expLine = MIN(pIMX415Ctx->maxIntegrationLine, MAX(pIMX415Ctx->minIntegrationLine, expLine));
-    TRACE(IMX415_DEBUG, "%s: set expLine = 0x%04x\n", __func__, expLine);
-
-    IMX415_IsiWriteRegIss(handle, 0x3050, (expLine & 0x00FF));
-    IMX415_IsiWriteRegIss(handle, 0x3051, ((expLine & 0xFF00) >> 8));
-    IMX415_IsiWriteRegIss(handle, 0x3052, ((expLine & 0x0F0000) >> 16));
-    pIMX415Ctx->aecCurIntegrationTime = expLine * pIMX415Ctx->oneLineExpTime;
-
-    TRACE(IMX415_DEBUG, "%s: set IntTime = %f\n", __func__, pIMX415Ctx->aecCurIntegrationTime);
+    set_integration_time(handle, pIMX415Ctx, pSensorIntTime->intTime[ISI_LINEAR_PARAS]);
+    pIMX415Ctx->aecCurIntegrationTime = get_integration_time(handle, pIMX415Ctx);
+    TRACE(IMX415_DEBUG, "%s: intTime:%f\n", __func__, pIMX415Ctx->aecCurIntegrationTime);
 
     TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);
@@ -678,7 +768,7 @@ RESULT IMX415_IsiGetIntTimeIss(IsiSensorHandle_t handle, IsiSensorIntTime_t *pSe
     TRACE(IMX415_DEBUG,  "%s: (enter)\n", __func__);
 
     if (!pIMX415Ctx) {
-        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
+        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n", __func__);
         return (RET_WRONG_HANDLE);
     }
 
@@ -686,7 +776,7 @@ RESULT IMX415_IsiGetIntTimeIss(IsiSensorHandle_t handle, IsiSensorIntTime_t *pSe
 
     pSensorIntTime->intTime[ISI_LINEAR_PARAS] = pIMX415Ctx->aecCurIntegrationTime;
 
-    TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -697,13 +787,13 @@ RESULT IMX415_IsiGetFpsIss(IsiSensorHandle_t handle, uint32_t *pFps)
     TRACE(IMX415_DEBUG,  "%s: (enter)\n", __func__);
 
     if (pIMX415Ctx == NULL) {
-        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
+        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n", __func__);
         return (RET_WRONG_HANDLE);
     }
 
     *pFps = pIMX415Ctx->currFps;
 
-    TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
+    TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -715,7 +805,7 @@ RESULT IMX415_IsiSetFpsIss(IsiSensorHandle_t handle, uint32_t fps)
 
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     if (pIMX415Ctx == NULL) {
-        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
+        TRACE(IMX415_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n", __func__);
         return (RET_WRONG_HANDLE);
     }
 
@@ -732,22 +822,9 @@ RESULT IMX415_IsiSetFpsIss(IsiSensorHandle_t handle, uint32_t fps)
 
     NewVts = pIMX415Ctx->frameLengthLines*pIMX415Ctx->sensorMode.fps / fps;
 
-    #ifdef  H1V1
-    result  =  IMX415_IsiWriteRegIss(handle, 0x033d, NewVts >> 16);
-    result |=  IMX415_IsiWriteRegIss(handle, 0x033e, ((NewVts >> 8) & 0xff));
-    result |=  IMX415_IsiWriteRegIss(handle, 0x033f, NewVts & 0xff);
-    #endif
-
-    #ifdef  H8V8
-    result |=  IMX415_IsiWriteRegIss(handle, 0xe819, NewVts >> 16);
-    result |=  IMX415_IsiWriteRegIss(handle, 0xe81a, ((NewVts >> 8) & 0xff));
-    result |=  IMX415_IsiWriteRegIss(handle, 0xe81b, NewVts & 0xff);
-    #endif
-
     pIMX415Ctx->currFps              = fps;
     pIMX415Ctx->curFrameLengthLines  = NewVts;
     pIMX415Ctx->maxIntegrationLine   = pIMX415Ctx->curFrameLengthLines - 8;
-    //pIMX415Ctx->aecMaxIntegrationTime = pIMX415Ctx->maxIntegrationLine * pIMX415Ctx->oneLineExpTime;
 
     TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
@@ -779,40 +856,17 @@ RESULT IMX415_IsiSetTpgIss(IsiSensorHandle_t handle, IsiSensorTpg_t tpg)
         return RET_NULL_POINTER;
     }
 
-    if (pIMX415Ctx->configured != BOOL_TRUE)  return RET_WRONG_STATE;
-
-    if (tpg.enable == 0) {
-        result = IMX415_IsiWriteRegIss(handle, 0x0600, 0x00);
-        result |= IMX415_IsiWriteRegIss(handle, 0x0601, 0x00);
-    } else {
-        result = IMX415_IsiWriteRegIss(handle, 0x0600, 0x00);
-        result |= IMX415_IsiWriteRegIss(handle, 0x0601, 0x02);
-    }
-
-    pIMX415Ctx->testPattern = tpg.enable;
-
     TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);
     return (result);
 }
 RESULT IMX415_IsiGetTpgIss(IsiSensorHandle_t handle, IsiSensorTpg_t *pTpg)
 {
     RESULT result = RET_SUCCESS;
-    uint16_t value = 0;
     TRACE(IMX415_DEBUG,  "%s: (enter)\n", __func__);
 
     IMX415_Context_t *pIMX415Ctx = (IMX415_Context_t *) handle;
     if (pIMX415Ctx == NULL || pIMX415Ctx->isiCtx.halI2cHandle == NULL || pTpg == NULL) {
         return RET_NULL_POINTER;
-    }
-
-    if (pIMX415Ctx->configured != BOOL_TRUE)  return RET_WRONG_STATE;
-
-    if (!IMX415_IsiReadRegIss(handle, 0x6001,&value)) {
-        pTpg->enable = ((value & 0x02) != 0) ? 1 : 0;
-        if(pTpg->enable) {
-           pTpg->pattern = (0xff & value);
-        }
-      pIMX415Ctx->testPattern = pTpg->enable;
     }
 
     TRACE(IMX415_DEBUG,  "%s: (exit)\n", __func__);

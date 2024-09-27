@@ -54,6 +54,7 @@ extern IsiCamDrvConfig_t OS04a10_IsiCamDrvConfig;
 #ifdef DOLPHIN
 extern IsiCamDrvConfig_t IMX258_IsiCamDrvConfig;
 extern IsiCamDrvConfig_t IMX415_IsiCamDrvConfig;
+extern IsiCamDrvConfig_t OV5647_IsiCamDrvConfig;
 #endif
 
 RESULT SensorDrvConfigMapping
@@ -87,6 +88,7 @@ RESULT SensorDrvConfigMapping
 #ifdef DOLPHIN
         {"imx258" , &IMX258_IsiCamDrvConfig },
         {"imx415" , &IMX415_IsiCamDrvConfig },
+        {"ov5647" , &OV5647_IsiCamDrvConfig },
 #endif
     };
 

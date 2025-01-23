@@ -1000,7 +1000,7 @@
             [ 8]
          </aFpsMaxGain>
       </AEC>
-      <BLS index="1" type="cell" size="[1 2]">
+      <BLS index="1" type="cell" size="[1 1]">
          <cell index="1" type="struct" size="[1 1]">
             <name index="1" type="char" size="[1 9]">
                1920x1080
@@ -1011,20 +1011,6 @@
             <blsData index="1" type="double" size="[1 4]">
                [64 64 64 64]
             </blsData>
-         </cell>
-         <cell index="2" type="struct" size="[1 1]">
-            <name index="1" type="char" size="[1 9]">
-               1920x1080
-            </name>
-            <resolution index="1" type="char" size="[1 9]">
-               1920x1080
-            </resolution>
-            <blsData index="1" type="double" size="[1 4]">
-               [64 64 64 64]
-            </blsData>
-            <SensorGains index="1" type="double" size="[1 1]">
-               [ 0.2]
-            </SensorGains>
          </cell>
       </BLS>
       <DEGAMMA index="1" type="cell" size="[1 1]">
@@ -1095,37 +1081,8 @@
             </blue_parameters>
          </cell>
       </CAC>
-      <DPF index="1" type="cell" size="[1 2]">
+      <DPF index="1" type="cell" size="[1 1]">
          <cell index="1" type="struct" size="[1 1]">
-            <name index="1" type="char" size="[1 9]">
-               1920x1080
-            </name>
-            <resolution index="1" type="char" size="[1 9]">
-               1920x1080
-            </resolution>
-            <NLL_SEGMENTATION index="1" type="double" size="[1 1]">
-               [ 1]
-            </NLL_SEGMENTATION>
-            <nll_coeff_n index="1" type="double" size="[1 17]">
-               [1023 859 589 476 410 334 288 258 235 203 182 166 143 128 117 108 101]
-            </nll_coeff_n>
-            <SigmaGreen index="1" type="double" size="[1 1]">
-               [ 4]
-            </SigmaGreen>
-            <SigmaRedBlue index="1" type="double" size="[1 1]">
-               [ 4]
-            </SigmaRedBlue>
-            <Gradient index="1" type="double" size="[1 1]">
-               [ 0.15]
-            </Gradient>
-            <Offset index="1" type="double" size="[1 1]">
-               [ 0]
-            </Offset>
-            <NlGains index="1" type="double" size="[1 4]">
-               [1 1 1 1]
-            </NlGains>
-         </cell>
-         <cell index="2" type="struct" size="[1 1]">
             <name index="1" type="char" size="[1 9]">
                1920x1080
             </name>

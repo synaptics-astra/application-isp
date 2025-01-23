@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -424,8 +438,8 @@ static RESULT OV10652_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOV10652Ctx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOV10652Ctx->isiCtx.halI2cHandle);
     (void)HalDelRef(pOV10652Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOV10652Ctx->isiCtx.halI2cHandle);
 
     MEMSET(pOV10652Ctx, 0, sizeof(OV10652_Context_t));
     osFree(pOV10652Ctx);
@@ -573,7 +587,7 @@ RESULT OV10652_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
     }
 
     uint32_t again = 0, dgain = 0;
-    float NewGain = 0;
+    float32_t NewGain = 0;
     uint16_t data = 0;
 
     NewGain = pSensorAGain->gain[ISI_DUAL_EXP_L_PARAS];
@@ -582,7 +596,7 @@ RESULT OV10652_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
     if (pOV10652Ctx->sensorMode.hdrMode != ISI_SENSOR_MODE_LINEAR) {
         TRACE(OV10652_INFO, "%s: set native hdr mode L/S gain\n", __func__);
         uint32_t againSpd = 0, dgainLpd = 0, dgainSpd = 0;
-        float Gain = 0, VSGain = 0;
+        float32_t Gain = 0, VSGain = 0;
         /* set native hdr mode L/S gain */
         //if(hdr_ratio[0] <= 1) hdr_ratio[0] =4;
         Gain = NewGain * 4;
@@ -822,7 +836,7 @@ RESULT OV10652_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime
     return (result);
 }
 
-static RESULT OV10652_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT OV10652_SetIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV10652_INFO, "%s: (enter)\n", __func__);
@@ -864,7 +878,7 @@ static RESULT OV10652_SetIntTime(IsiSensorHandle_t handle, float newIntegrationT
     return (result);
 }
 
-static RESULT OV10652_SetVSIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT OV10652_SetVSIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV10652_INFO, "%s: (enter)\n", __func__);

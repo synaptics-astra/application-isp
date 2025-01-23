@@ -34,6 +34,7 @@
 #include <hal/hal_api.h>
 #include <isi/isi_common.h>
 #include <isi/isi_vvsensor.h>
+#include "isi_priv.h"
 
 #define IMX258_MAX_GAIN_AEC     ( 128.0f )       /**< max. gain used by the AEC (arbitrarily chosen, hardware limit = 62.0, driver limit = 32.0 ) */
 #define IMX258_MIN_GAIN_AEC     ( 1.0f )

@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -193,7 +207,7 @@ static RESULT IMX327_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
     RESULT result = RET_SUCCESS;
     TRACE(IMX327_INFO, "%s (enter)\n", __func__);
 
-    IMX327_Context_t *pIMX327Ctx = (IMX327_Context_t *) malloc(sizeof(IMX327_Context_t));
+    IMX327_Context_t *pIMX327Ctx = (IMX327_Context_t *) osMalloc(sizeof(IMX327_Context_t));
     if (!pIMX327Ctx) {
         TRACE(IMX327_ERROR, "%s: Can't allocate IMX327 context\n",__func__);
         return (RET_OUTOFMEM);
@@ -225,7 +239,7 @@ static RESULT IMX327_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     result = HalAddRef(pIMX327Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pIMX327Ctx);
+        osFree(pIMX327Ctx);
         return (result);
     }
 
@@ -375,7 +389,7 @@ static RESULT IMX327_IsiReleaseIss(IsiSensorHandle_t handle)
     (void)HalDelRef(pIMX327Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
 
     MEMSET(pIMX327Ctx, 0, sizeof(IMX327_Context_t));
-    free(pIMX327Ctx);
+    osFree(pIMX327Ctx);
     TRACE(IMX327_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -514,14 +528,14 @@ RESULT IMX327_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
         result |= IMX327_IsiWriteRegIss(handle, 0x3001, 0x01);
         result |= IMX327_IsiWriteRegIss(handle, 0x3014, (again));
         result |= IMX327_IsiWriteRegIss(handle, 0x3001, 0x00);
-        pIMX327Ctx->curAgain = (float)(pSensorAGain->gain[ISI_LINEAR_PARAS]);
+        pIMX327Ctx->curAgain = (float32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS]);
 
     } else if (pIMX327Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
         again = (uint32_t)(20 * log10(pSensorAGain->gain[ISI_DUAL_EXP_L_PARAS]) * (10/3));
         result |= IMX327_IsiWriteRegIss(handle, 0x3001, 0x01);
         result |= IMX327_IsiWriteRegIss(handle, 0x3014, (again));
         result |= IMX327_IsiWriteRegIss(handle, 0x3001, 0x00);
-        pIMX327Ctx->curAgain = (float)(pSensorAGain->gain[ISI_DUAL_EXP_L_PARAS]);
+        pIMX327Ctx->curAgain = (float32_t)(pSensorAGain->gain[ISI_DUAL_EXP_L_PARAS]);
 
         vsagain = (uint32_t)(20 * log10(pSensorAGain->gain[ISI_DUAL_EXP_S_PARAS]) * (10/3));
         result |= IMX327_IsiWriteRegIss(handle, 0x3001, 0x01);
@@ -622,7 +636,7 @@ RESULT IMX327_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_
     return (result);
 }
 
-static RESULT IMX327_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT IMX327_SetIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(IMX327_INFO, "%s: (enter)\n", __func__);
@@ -652,7 +666,7 @@ static RESULT IMX327_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTi
     return (result);
 }
 
-static RESULT IMX327_SetVSIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT IMX327_SetVSIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(IMX327_INFO, "%s: (enter)\n", __func__);

@@ -1,14 +1,29 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                           *|
-|*                    *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.             *|
-|*                    *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
+
 /**
  * @file OS02c10_priv.h
  *
@@ -34,7 +49,7 @@
 #include <hal/hal_api.h>
 #include <isi/isi_common.h>
 #include "vvsensor.h"
-
+#include "isi_priv.h"
 
 
 #ifdef __cplusplus
@@ -65,7 +80,7 @@ typedef struct OS02c10_Context_s
 
     bool_t              isAfpsRun;              /**< if true, just do anything required for Afps parameter calculation, but DON'T access SensorHW! */
 
-    float               one_line_exp_time;
+    float32_t               one_line_exp_time;
     uint16_t            MaxIntegrationLine;
     uint16_t            MinIntegrationLine;
     uint32_t            gain_accuracy;
@@ -73,20 +88,20 @@ typedef struct OS02c10_Context_s
     uint16_t            FrameLengthLines;       /**< frame line length */
     uint16_t            CurFrameLengthLines;
 
-    float               AecMinGain;
-    float               AecMaxGain;
-    float               AecMinIntegrationTime;
-    float               AecMaxIntegrationTime;
+    float32_t               AecMinGain;
+    float32_t               AecMaxGain;
+    float32_t               AecMinIntegrationTime;
+    float32_t               AecMaxIntegrationTime;
 
-    float               AecIntegrationTimeIncrement; /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
-    float               AecGainIncrement;            /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
+    float32_t               AecIntegrationTimeIncrement; /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
+    float32_t               AecGainIncrement;            /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
 
-    float               AecCurIntegrationTime;
-    float               AecCurVSIntegrationTime;
-    float               AecCurLongIntegrationTime;
-    float               AecCurGain;
-    float               AecCurVSGain;
-    float               AecCurLongGain;
+    float32_t               AecCurIntegrationTime;
+    float32_t               AecCurVSIntegrationTime;
+    float32_t               AecCurLongIntegrationTime;
+    float32_t               AecCurGain;
+    float32_t               AecCurVSGain;
+    float32_t               AecCurLongGain;
 
     uint32_t            LastExpLine;
     uint32_t            LastVsExpLine;
@@ -108,7 +123,7 @@ typedef struct OS02c10_Context_s
     int                 subdev;
     uint8_t             pattern;
 
-    float               CurHdrRatio;
+    float32_t               CurHdrRatio;
 } OS02c10_Context_t;
 
 static RESULT OS02c10_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig);
@@ -118,22 +133,22 @@ static RESULT OS02c10_IsiSetupIss(IsiSensorHandle_t handle);
 static RESULT OS02c10_IsiSetStreamingIss(IsiSensorHandle_t handle, bool_t on);
 static RESULT OS02c10_IsiSetPowerIss(IsiSensorHandle_t handle, bool_t on);
 static RESULT OS02c10_IsiGetRevisionIss(IsiSensorHandle_t handle, uint32_t *pValue);
-static RESULT OS02c10_IsiGetGainLimitsIss(IsiSensorHandle_t handle, float *pMinGain, float *pMaxGain);
-static RESULT OS02c10_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, float *pMinIntegrationTime, float *pMaxIntegrationTime);
-static RESULT OS02c10_IsiExposureControlIss(IsiSensorHandle_t handle, float NewGain, float NewIntegrationTime, uint8_t *pNumberOfFramesToSkip, 
-                                float *pSetGain, float *pSetIntegrationTime, float *hdr_ratio);
-static RESULT OS02c10_IsiGetGainIss(IsiSensorHandle_t handle, float *pSetGain);
-static RESULT OS02c10_IsiGetVSGainIss(IsiSensorHandle_t handle, float *pSetGain);
-static RESULT OS02c10_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float *pIncr);
-static RESULT OS02c10_IsiSetGainIss(IsiSensorHandle_t handle, float NewGain, float *pSetGain, float *hdr_ratio);
-static RESULT OS02c10_IsiSetVSGainIss(IsiSensorHandle_t handle, float NewIntegrationTime, float NewGain, float *pSetGain, float *hdr_ratio);
-static RESULT OS02c10_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIntegrationTime);
-static RESULT OS02c10_IsiGetVSIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIntegrationTime);
-static RESULT OS02c10_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float *pIncr);
-static RESULT OS02c10_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegrationTime, float *pSetIntegrationTime, 
-                                uint8_t *pNumberOfFramesToSkip, float *hdr_ratio);
-static RESULT OS02c10_IsiSetVSIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegrationTime, float *pSetIntegrationTime, 
-                                uint8_t *pNumberOfFramesToSkip, float *hdr_ratio);
+static RESULT OS02c10_IsiGetGainLimitsIss(IsiSensorHandle_t handle, float32_t *pMinGain, float32_t *pMaxGain);
+static RESULT OS02c10_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, float32_t *pMinIntegrationTime, float32_t *pMaxIntegrationTime);
+static RESULT OS02c10_IsiExposureControlIss(IsiSensorHandle_t handle, float32_t NewGain, float32_t NewIntegrationTime, uint8_t *pNumberOfFramesToSkip, 
+                                float32_t *pSetGain, float32_t *pSetIntegrationTime, float32_t *hdr_ratio);
+static RESULT OS02c10_IsiGetGainIss(IsiSensorHandle_t handle, float32_t *pSetGain);
+static RESULT OS02c10_IsiGetVSGainIss(IsiSensorHandle_t handle, float32_t *pSetGain);
+static RESULT OS02c10_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float32_t *pIncr);
+static RESULT OS02c10_IsiSetGainIss(IsiSensorHandle_t handle, float32_t NewGain, float32_t *pSetGain, float32_t *hdr_ratio);
+static RESULT OS02c10_IsiSetVSGainIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime, float32_t NewGain, float32_t *pSetGain, float32_t *hdr_ratio);
+static RESULT OS02c10_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pSetIntegrationTime);
+static RESULT OS02c10_IsiGetVSIntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pSetIntegrationTime);
+static RESULT OS02c10_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float32_t *pIncr);
+static RESULT OS02c10_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime, float32_t *pSetIntegrationTime, 
+                                uint8_t *pNumberOfFramesToSkip, float32_t *hdr_ratio);
+static RESULT OS02c10_IsiSetVSIntegrationTimeIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime, float32_t *pSetIntegrationTime, 
+                                uint8_t *pNumberOfFramesToSkip, float32_t *hdr_ratio);
 
 
 #ifdef __cplusplus

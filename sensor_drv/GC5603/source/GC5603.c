@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -168,7 +182,7 @@ static RESULT GC5603_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
     RESULT result = RET_SUCCESS;
     TRACE(GC5603_INFO, "%s (enter)\n", __func__);
 
-    GC5603_Context_t *pGC5603Ctx = (GC5603_Context_t *) malloc(sizeof(GC5603_Context_t));
+    GC5603_Context_t *pGC5603Ctx = (GC5603_Context_t *) osMalloc(sizeof(GC5603_Context_t));
     if (!pGC5603Ctx) {
         TRACE(GC5603_ERROR, "%s: Can't allocate gc5603 context\n",__func__);
         return (RET_OUTOFMEM);
@@ -199,7 +213,7 @@ static RESULT GC5603_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     result = HalAddRef(pGC5603Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pGC5603Ctx);
+        osFree(pGC5603Ctx);
         return (result);
     }
 
@@ -350,7 +364,7 @@ static RESULT GC5603_IsiReleaseIss(IsiSensorHandle_t handle)
     (void)HalDelRef(pGC5603Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
 
     MEMSET(pGC5603Ctx, 0, sizeof(GC5603_Context_t));
-    free(pGC5603Ctx);
+    osFree(pGC5603Ctx);
     TRACE(GC5603_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -489,7 +503,7 @@ RESULT GC5603_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
     RESULT result = RET_SUCCESS;
     TRACE(GC5603_INFO, "%s: (enter)\n", __func__);
     uint32_t totalGain = 0, dgain_reg = 0;
-    float aGain = 0, dGain = 0;
+    float32_t aGain = 0, dGain = 0;
 
     GC5603_Context_t *pGC5603Ctx = (GC5603_Context_t *) handle;
     if (pGC5603Ctx == NULL || pGC5603Ctx->isiCtx.halI2cHandle == NULL) {
@@ -502,8 +516,8 @@ RESULT GC5603_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
             TRACE(GC5603_ERROR,"%s: Invalid sensor gain\n", __func__);
             return (RET_INVALID_PARM);
         } else if (totalGain >= GC5603_analog_gain[25][0]){
-            aGain = (float)(GC5603_analog_gain[25][0]/64.0f);
-            dGain = (float)(totalGain/64.0f) / aGain;
+            aGain = (float32_t)(GC5603_analog_gain[25][0]/64.0f);
+            dGain = (float32_t)(totalGain/64.0f) / aGain;
             pGC5603Ctx->curAgain = aGain;
             pGC5603Ctx->curDgain = dGain;
 
@@ -522,8 +536,8 @@ RESULT GC5603_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
             result |= GC5603_IsiWriteRegIss(handle, 0x0065, (dgain_reg & 0x3f) << 2);
             break;
         } else if (totalGain >= GC5603_analog_gain[i][0] && totalGain < GC5603_analog_gain[i+1][0]){
-            aGain = (float)(GC5603_analog_gain[i][0]/64.0f);
-            dGain = (float)(totalGain/64.0f) / aGain;
+            aGain = (float32_t)(GC5603_analog_gain[i][0]/64.0f);
+            dGain = (float32_t)(totalGain/64.0f) / aGain;
             pGC5603Ctx->curAgain = aGain;
             pGC5603Ctx->curDgain = dGain;
             //set again registers

@@ -1,29 +1,14 @@
-/****************************************************************************
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2022 Vivante Corporation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
- ****************************************************************************/
-
+/******************************************************************************\
+|* Copyright (c) <2024> by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")     *|
+|* All Rights Reserved.                                                       *|
+|*                                                                            *|
+|* The material in this file is confidential and contains trade secrets       *|
+|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
+|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
+|* transmitted, or used in any way for any purpose, without the express       *|
+|* written permission of VeriSilicon.                                         *|
+|*                                                                            *|
+\******************************************************************************/
 
 /**
  * @file hal_common.h
@@ -48,6 +33,16 @@
 extern "C"
 {
 #endif
+
+#ifdef DOLPHIN
+/* TODO: Check bufType
+* Use ring buffer when IOMMU is disabled. Otherwise, use normal buffer */
+#define IS_RING_BUFFER_MODE(bufType) 1
+#endif
+
+/* MACRO for reserved memory. */
+#define HAL_RESERVED_MEM_BASE   0x10000000
+#define HAL_RESERVED_MEM_SIZE   0x20000000
 
 /* MACRO for MI sub-system. */
 #define HAL_MSS_REG_SIZE        0x10000
@@ -173,6 +168,7 @@ typedef enum HalIsrSrc_e
     eHalIsrSrcCamIcHdrIrq,
     eHalIsrSrcCamIcHdr1Irq,
     eHalIsrSrcCamIcFEIrq,
+    eHalIsrSrcCamIcFeBatchModeIrq,
     eHalIsrSrcCamIcJdpIrq,
     eHalIsrSrcCamIcFusaEcc1Irq,
     eHalIsrSrcCamIcFusaEcc2Irq,
@@ -183,6 +179,7 @@ typedef enum HalIsrSrc_e
     eHalIsrSrcCamIcFusaDupIrq,
     eHalIsrSrcCamIcFusaParityIrq,
     eHalIsrSrcCamIcFusaLv1Irq,
+    eHalIsrSrcCamIcRdcdMiIrq,
     eHalIsrMax
 } HalIsrSrc_t;
 
@@ -532,6 +529,7 @@ typedef struct HalVideoInContext_s {
 
     osDpcFunc           halIsrFunTable[eHalVideoInIsrSrcPathMax];  //!< hal Isr source and function table
     void *pIrqNotifier;
+    uint8_t             hwId;                //!<  hard ware id
 } HalVideoInContext_t;
 
 

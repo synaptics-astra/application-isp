@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/types.h>
 #include <ebase/trace.h>
@@ -20,12 +34,6 @@
 #include "isi.h"
 #include "isi_iss.h"
 #include "IMX290_priv.h"
-
-#ifdef SENSOR_V4L2_DEV
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#endif
 
 CREATE_TRACER(IMX290_INFO , "IMX290: ", INFO,    1);
 CREATE_TRACER(IMX290_WARN , "IMX290: ", WARNING, 1);
@@ -42,10 +50,6 @@ CREATE_TRACER(IMX290_REG_DEBUG, "IMX290: ", INFO, 1);
 #define IMX290_HTS_NUM          0x1130
 #define IMX290_PIX_CLOCK        (37.125f)
 
-
-#ifdef SENSOR_V4L2_DEV
-int fd;
-#endif
 extern const IsiRegDescription_t IMX290_g_aRegDescription[];
 const IsiSensorCaps_t IMX290_g_IsiSensorDefaultConfig;
 
@@ -253,7 +257,7 @@ static RESULT IMX290_IsiCreateSensorIss(IsiSensorInstanceConfig_t *pConfig)
     if (!pConfig || !pConfig->pSensor)
         return (RET_NULL_POINTER);
 
-    pIMX290Ctx = (IMX290_Context_t *)malloc (sizeof (IMX290_Context_t));
+    pIMX290Ctx = (IMX290_Context_t *)osMalloc (sizeof (IMX290_Context_t));
     if (!pIMX290Ctx) {
         TRACE(IMX290_ERROR,  "%s: Can't allocate ov2775 context\n",  __func__);
         return (RET_OUTOFMEM);
@@ -263,7 +267,7 @@ static RESULT IMX290_IsiCreateSensorIss(IsiSensorInstanceConfig_t *pConfig)
 
     result = HalAddRef(pConfig->HalHandle);
     if (result != RET_SUCCESS) {
-        free (pIMX290Ctx);
+        osFree (pIMX290Ctx);
         return (result);
     }
 
@@ -317,36 +321,6 @@ static RESULT IMX290_IsiCreateSensorIss(IsiSensorInstanceConfig_t *pConfig)
     }
 
     pIMX290Ctx->pattern = ISI_BPAT_GRGRBGBG;
-#ifdef SENSOR_V4L2_DEV
-    pIMX290Ctx->subdev = -1;
-
-    char szDeviceName[64] = { 0 };
-    struct v4l2_capability cap;
-    for (int index = 0; index < 20; index++) {
-        sprintf(szDeviceName, "/dev/v4l-subdev%d", index);
-        fd = open(szDeviceName, O_RDWR | O_NONBLOCK);
-        if (fd < 0) {
-            continue;
-        }
-        if (ioctl(fd, VIDIOC_QUERYCAP, &cap) != 0) {
-            close(fd);
-            continue;
-        }
-
-        if (strcmp((char*)cap.driver, "ov2775") == 0) {
-            // is sensor 2775
-            break;
-        }
-        fd = -1;
-    }
-
-    if (fd < 0) {
-        printf("can't open ov2775 subdev!!!");
-        exit(1);
-    }
-
-    pIMX290Ctx->subdev = fd;
-#endif
 
     TRACE(IMX290_INFO, "%s (exit)\n", __func__);
     return (result);
@@ -380,7 +354,7 @@ static RESULT IMX290_IsiGetRegCfgIss(const char *registerFileName, struct vvcam_
         FileTotalLine++;
     }
 
-    arry->sccb_data = malloc(FileTotalLine * sizeof(struct vvcam_sccb_data));
+    arry->sccb_data = osMalloc(FileTotalLine * sizeof(struct vvcam_sccb_data));
     if (arry->sccb_data ==  NULL) {
         TRACE(IMX290_ERROR, "%s:malloc failed NULL Point!\n", __func__,registerFileName);
         return (RET_FAILURE);
@@ -456,12 +430,12 @@ static RESULT IMX290_IsiInitSensorIss(IsiSensorHandle_t   handle)
             TRACE(IMX290_ERROR, "%s:sensor get ae info error!\n", __func__);
             return (RET_FAILURE);
         }
-        pIMX290Ctx->one_line_exp_time    = (float)ae_info.one_line_exp_time_ns / 1000000000;
+        pIMX290Ctx->one_line_exp_time    = (float32_t)ae_info.one_line_exp_time_ns / 1000000000;
         pIMX290Ctx->MaxIntegrationLine   = ae_info.max_integration_time;
         pIMX290Ctx->MinIntegrationLine   = ae_info.min_integration_time;
         pIMX290Ctx->gain_accuracy        = ae_info.gain_accuracy;
-        pIMX290Ctx->AecMinGain           = (float)(ae_info.min_gain)/ae_info.gain_accuracy;
-        pIMX290Ctx->AecMaxGain           = (float)(ae_info.max_gain)/ae_info.gain_accuracy;
+        pIMX290Ctx->AecMinGain           = (float32_t)(ae_info.min_gain)/ae_info.gain_accuracy;
+        pIMX290Ctx->AecMaxGain           = (float32_t)(ae_info.max_gain)/ae_info.gain_accuracy;
 
     } else {
         struct vvcam_sccb_array arry;
@@ -507,16 +481,9 @@ static RESULT IMX290_IsiReleaseSensorIss(IsiSensorHandle_t   handle)
     (void)IMX290_IsiSensorSetPowerIss(pIMX290Ctx, BOOL_FALSE);
     (void)HalDelRef(pIMX290Ctx->IsiCtx.HalHandle);
 
-#ifdef SENSOR_V4L2_DEV
-    if (pIMX290Ctx->subdev >= 0)
-        close(pIMX290Ctx->subdev);
-#endif
-
     MEMSET(pIMX290Ctx, 0, sizeof(IMX290_Context_t));
-    free (pIMX290Ctx);
-#ifdef SENSOR_V4L2_DEV
-    close(fd);
-#endif
+    osFree (pIMX290Ctx);
+
     TRACE(IMX290_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -714,7 +681,7 @@ static RESULT IMX290_IsiChangeSensorResolutionIss(IsiSensorHandle_t handle, uint
         // well, no need to worry
         *pNumberOfFramesToSkip = 0;
     } else {
-        float hdr_ratio[2]  = {1.0f, 1.0f};
+        float32_t hdr_ratio[2]  = {1.0f, 1.0f};
         // change resolution
         char *szResName = NULL;
         result = IsiGetResolutionName(Resolution, &szResName);
@@ -726,8 +693,8 @@ static RESULT IMX290_IsiChangeSensorResolutionIss(IsiSensorHandle_t handle, uint
         // tell sensor about that
 
         // remember old exposure values
-        float OldGain = pIMX290Ctx->AecCurGain;
-        float OldIntegrationTime = pIMX290Ctx->AecCurIntegrationTime;
+        float32_t OldGain = pIMX290Ctx->AecCurGain;
+        float32_t OldIntegrationTime = pIMX290Ctx->AecCurIntegrationTime;
 
         // update limits & stuff (reset current & old settings)
         result |= IMX290_AecSetModeParameters(pIMX290Ctx, &pIMX290Ctx->Config);
@@ -738,8 +705,8 @@ static RESULT IMX290_IsiChangeSensorResolutionIss(IsiSensorHandle_t handle, uint
 
         // restore old exposure values (at least within new exposure values' limits)
         uint8_t NumberOfFramesToSkip;
-        float DummySetGain;
-        float DummySetIntegrationTime;
+        float32_t DummySetGain;
+        float32_t DummySetIntegrationTime;
         result |= IMX290_IsiExposureControlIss(handle, OldGain, OldIntegrationTime, &NumberOfFramesToSkip, &DummySetGain, &DummySetIntegrationTime, hdr_ratio);
         if (result != RET_SUCCESS) {
             TRACE(IMX290_ERROR, "%s: IMX290_IsiExposureControlIss failed.\n", __func__);
@@ -865,7 +832,7 @@ static RESULT IMX290_IsiGetSensorRevisionIss(IsiSensorHandle_t handle, uint32_t 
     return (result);
 }
 
-static RESULT IMX290_IsiGetGainLimitsIss(IsiSensorHandle_t handle, float *pMinGain, float *pMaxGain)
+static RESULT IMX290_IsiGetGainLimitsIss(IsiSensorHandle_t handle, float32_t *pMinGain, float32_t *pMaxGain)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
@@ -890,7 +857,7 @@ static RESULT IMX290_IsiGetGainLimitsIss(IsiSensorHandle_t handle, float *pMinGa
     return (result);
 }
 
-static RESULT IMX290_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, float *pMinIntegrationTime, float *pMaxIntegrationTime)
+static RESULT IMX290_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, float32_t *pMinIntegrationTime, float32_t *pMaxIntegrationTime)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
@@ -914,7 +881,7 @@ static RESULT IMX290_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, fl
     return (result);
 }
 
-RESULT IMX290_IsiGetGainIss(IsiSensorHandle_t handle,float *pSetGain)
+RESULT IMX290_IsiGetGainIss(IsiSensorHandle_t handle,float32_t *pSetGain)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
@@ -936,7 +903,7 @@ RESULT IMX290_IsiGetGainIss(IsiSensorHandle_t handle,float *pSetGain)
 }
 
 
-RESULT IMX290_IsiGetVSGainIss(IsiSensorHandle_t handle,float *pSetGain)
+RESULT IMX290_IsiGetVSGainIss(IsiSensorHandle_t handle,float32_t *pSetGain)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
@@ -959,7 +926,7 @@ RESULT IMX290_IsiGetVSGainIss(IsiSensorHandle_t handle,float *pSetGain)
     return (result);
 }
 
-RESULT IMX290_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float *pIncr)
+RESULT IMX290_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float32_t *pIncr)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
@@ -980,11 +947,11 @@ RESULT IMX290_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float *pIncr)
     return (result);
 }
 
-RESULT IMX290_IsiSetGainIss(IsiSensorHandle_t handle, float NewGain, float *pSetGain, float *hdr_ratio)
+RESULT IMX290_IsiSetGainIss(IsiSensorHandle_t handle, float32_t NewGain, float32_t *pSetGain, float32_t *hdr_ratio)
 {
 
     RESULT result = RET_SUCCESS;
-    float  gain = 0.0;
+    float32_t  gain = 0.0;
     int32_t set_val = 0.0;
 
     IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
@@ -1007,14 +974,14 @@ RESULT IMX290_IsiSetGainIss(IsiSensorHandle_t handle, float NewGain, float *pSet
 
     }
 
-    pIMX290Ctx->AecCurGain = ((float)(NewGain));
+    pIMX290Ctx->AecCurGain = ((float32_t)(NewGain));
 
     *pSetGain = pIMX290Ctx->AecCurGain;
     TRACE(IMX290_DEBUG, "%s: g=%f\n", __func__, *pSetGain);
     return (result);
 }
 
-RESULT IMX290_IsiSetVSGainIss(IsiSensorHandle_t handle, float NewIntegrationTime, float NewGain, float *pSetGain, const float *hdr_ratio)
+RESULT IMX290_IsiSetVSGainIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime, float32_t NewGain, float32_t *pSetGain, const float32_t *hdr_ratio)
 {
     IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     if (!pIMX290Ctx) {
@@ -1024,8 +991,8 @@ RESULT IMX290_IsiSetVSGainIss(IsiSensorHandle_t handle, float NewIntegrationTime
     const HalContext_t *pHalCtx = (HalContext_t *)pIMX290Ctx->IsiCtx.HalHandle;
     RESULT result = RET_SUCCESS;
 
-    float Gain = 0.0f;
-    float ratio = 0.25f;
+    float32_t Gain = 0.0f;
+    float32_t ratio = 0.25f;
     uint32_t ucGain = 0U;
     uint32_t again = 0U;
     uint32_t data = 0;
@@ -1120,7 +1087,7 @@ RESULT IMX290_IsiSetBayerPattern(IsiSensorHandle_t handle, uint8_t pattern)
     return (result);
 }
 
-RESULT IMX290_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIntegrationTime)
+RESULT IMX290_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pSetIntegrationTime)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
@@ -1140,7 +1107,7 @@ RESULT IMX290_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetInte
 }
 
 
-RESULT IMX290_IsiGetVSIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIntegrationTime)
+RESULT IMX290_IsiGetVSIntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pSetIntegrationTime)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
@@ -1158,7 +1125,7 @@ RESULT IMX290_IsiGetVSIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIn
     return (result);
 }
 
-RESULT IMX290_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float *pIncr)
+RESULT IMX290_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float32_t *pIncr)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
@@ -1178,8 +1145,8 @@ RESULT IMX290_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float 
     return (result);
 }
 
-RESULT IMX290_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegrationTime, float *pSetIntegrationTime,
-                                        uint8_t *pNumberOfFramesToSkip, float *hdr_ratio)
+RESULT IMX290_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime, float32_t *pSetIntegrationTime,
+                                        uint8_t *pNumberOfFramesToSkip, float32_t *hdr_ratio)
 {
     RESULT result = RET_SUCCESS;
 
@@ -1231,8 +1198,8 @@ RESULT IMX290_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegr
     return (result);
 }
 
-RESULT IMX290_IsiSetVSIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegrationTime, float *pSetVSIntegrationTime,
-                                        uint8_t *pNumberOfFramesToSkip, const float *hdr_ratio)
+RESULT IMX290_IsiSetVSIntegrationTimeIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime, float32_t *pSetVSIntegrationTime,
+                                        uint8_t *pNumberOfFramesToSkip, const float32_t *hdr_ratio)
 {
     IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     if (!pIMX290Ctx) {
@@ -1292,12 +1259,12 @@ RESULT IMX290_IsiSetVSIntegrationTimeIss(IsiSensorHandle_t handle, float NewInte
     return (result);
 }
 
-RESULT IMX290_IsiExposureControlIss(IsiSensorHandle_t handle, float NewGain, float NewIntegrationTime, uint8_t *pNumberOfFramesToSkip,
-                                    float *pSetGain, float *pSetIntegrationTime, float *hdr_ratio)
+RESULT IMX290_IsiExposureControlIss(IsiSensorHandle_t handle, float32_t NewGain, float32_t NewIntegrationTime, uint8_t *pNumberOfFramesToSkip,
+                                    float32_t *pSetGain, float32_t *pSetIntegrationTime, float32_t *hdr_ratio)
 {
     IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;
-    const float Gain = NewGain;
+    const float32_t Gain = NewGain;
     TRACE(IMX290_INFO, "%s: (enter)\n", __func__);
 
     if (pIMX290Ctx == NULL) {
@@ -1328,7 +1295,7 @@ RESULT IMX290_IsiExposureControlIss(IsiSensorHandle_t handle, float NewGain, flo
     return (0);
 }
 
-RESULT IMX290_IsiGetCurrentExposureIss(IsiSensorHandle_t handle, float *pSetGain, float *pSetIntegrationTime, float *hdr_ratio)
+RESULT IMX290_IsiGetCurrentExposureIss(IsiSensorHandle_t handle, float32_t *pSetGain, float32_t *pSetIntegrationTime, float32_t *hdr_ratio)
 {
     const IMX290_Context_t *pIMX290Ctx = (IMX290_Context_t *)handle;
     RESULT result = RET_SUCCESS;

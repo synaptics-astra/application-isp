@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -247,7 +261,7 @@ static RESULT OX08a4Y_AecSetModeParameters(IsiSensorHandle_t handle, OX08a4Y_Con
     dgain = dgain | ((value & 0xff) << 8);
     OX08a4Y_IsiReadRegIss(handle, 0x358c, &value);
     dgain = dgain | (value & 0xc0);
-    pOX08a4YCtx->aecCurGain.gain[0] = ((float)again/16.0) * ((float)dgain/1024.0);
+    pOX08a4YCtx->aecCurGain.gain[0] = ((float32_t)again/16.0) * ((float32_t)dgain/1024.0);
 
     //get expLine
     OX08a4Y_IsiReadRegIss(handle, 0x3501, &value);
@@ -378,8 +392,8 @@ static RESULT OX08a4Y_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOX08a4YCtx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOX08a4YCtx->isiCtx.halI2cHandle);
     (void)HalDelRef(pOX08a4YCtx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOX08a4YCtx->isiCtx.halI2cHandle);
 
     MEMSET(pOX08a4YCtx, 0, sizeof(OX08a4Y_Context_t));
     osFree(pOX08a4YCtx);
@@ -520,25 +534,25 @@ RESULT OX08a4Y_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         again = (uint32_t)((pSensorAGain->gain[ISI_LINEAR_PARAS]) * 16);
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x3508, (again & 0x0ff0) >> 8);
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x3509, (again & 0xf0));
-        pOX08a4YCtx->curAgain.gain[0] = (float)again/16.0f;
+        pOX08a4YCtx->curAgain.gain[0] = (float32_t)again/16.0f;
 
         //set LCG analog gain
         again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 16);
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x3588, (again & 0x0ff0) >> 8);
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x3589, (again & 0xf0));
-        pOX08a4YCtx->curAgain.gain[1] = (float)again/16.0f;
+        pOX08a4YCtx->curAgain.gain[1] = (float32_t)again/16.0f;
         
         //set S analog gain
         again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 16);
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x3548, (again & 0x0ff0) >> 8);
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x3549, (again & 0xf0));
-        pOX08a4YCtx->curAgain.gain[2] = (float)again/16.0f;
+        pOX08a4YCtx->curAgain.gain[2] = (float32_t)again/16.0f;
 
         //set VS analog gain
         again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 16);
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x35c8, (again & 0x0ff0) >> 8);
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x35c9, (again & 0xf0));
-        pOX08a4YCtx->curAgain.gain[3] = (float)again/16.0f;
+        pOX08a4YCtx->curAgain.gain[3] = (float32_t)again/16.0f;
 
     } else {
         TRACE(OX08a4Y_INFO, "%s:not support this ExpoFrmType.\n", __func__);
@@ -566,7 +580,7 @@ RESULT OX08a4Y_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         result = OX08a4Y_IsiWriteRegIss(handle, 0x350a, (dgain >> 16) & 0x0f);
         result |= OX08a4Y_IsiWriteRegIss(handle,0x350b, (dgain >> 8) & 0xff);
         result |= OX08a4Y_IsiWriteRegIss(handle,0x350c, (dgain & 0xc0));
-        pOX08a4YCtx->curDgain.gain[0] = (float)dgain/1024.0f;
+        pOX08a4YCtx->curDgain.gain[0] = (float32_t)dgain/1024.0f;
         pOX08a4YCtx->aecCurGain.gain[0] = pOX08a4YCtx->curAgain.gain[0] * pOX08a4YCtx->curDgain.gain[0];
 
         //set LCG digital gain
@@ -574,7 +588,7 @@ RESULT OX08a4Y_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x358a, (dgain >> 16) & 0x0f);
         result |= OX08a4Y_IsiWriteRegIss(handle,0x358b, (dgain >> 8) & 0xff);
         result |= OX08a4Y_IsiWriteRegIss(handle,0x358c, (dgain & 0xc0));
-        pOX08a4YCtx->curDgain.gain[1] = (float)dgain/1024.0f;
+        pOX08a4YCtx->curDgain.gain[1] = (float32_t)dgain/1024.0f;
         pOX08a4YCtx->aecCurGain.gain[1] = pOX08a4YCtx->curAgain.gain[1] * pOX08a4YCtx->curDgain.gain[1];
 
         //set S digital gain
@@ -582,7 +596,7 @@ RESULT OX08a4Y_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x354a, (dgain >> 16) & 0x0f);
         result |= OX08a4Y_IsiWriteRegIss(handle,0x354b, (dgain >> 8) & 0xff);
         result |= OX08a4Y_IsiWriteRegIss(handle,0x354c, (dgain & 0xc0));
-        pOX08a4YCtx->curDgain.gain[2] = (float)dgain/1024.0f;
+        pOX08a4YCtx->curDgain.gain[2] = (float32_t)dgain/1024.0f;
         pOX08a4YCtx->aecCurGain.gain[2] = pOX08a4YCtx->curAgain.gain[2] * pOX08a4YCtx->curDgain.gain[2];
 
         //set VS digital gain
@@ -590,7 +604,7 @@ RESULT OX08a4Y_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         result |= OX08a4Y_IsiWriteRegIss(handle, 0x35ca, (dgain >> 16) & 0x0f);
         result |= OX08a4Y_IsiWriteRegIss(handle,0x35cb, (dgain >> 8) & 0xff);
         result |= OX08a4Y_IsiWriteRegIss(handle,0x35cc, (dgain & 0xc0));
-        pOX08a4YCtx->curDgain.gain[3] = (float)dgain/1024.0f;
+        pOX08a4YCtx->curDgain.gain[3] = (float32_t)dgain/1024.0f;
         pOX08a4YCtx->aecCurGain.gain[3] = pOX08a4YCtx->curAgain.gain[3] * pOX08a4YCtx->curDgain.gain[3];
 
     } else {
@@ -682,13 +696,13 @@ RESULT OX08a4Y_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime
     return (result);
 }
 
-static RESULT OX08a4Y_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT OX08a4Y_SetIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(OX08a4Y_INFO, "%s: (enter)\n", __func__);
     OX08a4Y_Context_t *pOX08a4YCtx = (OX08a4Y_Context_t *) handle;
     uint32_t expLine = 0;
-    float dcgIntegrationTime = 0, sIntegrationTime = 0, vsIntegrationTime = 0;
+    float32_t dcgIntegrationTime = 0, sIntegrationTime = 0, vsIntegrationTime = 0;
 
     if (!pOX08a4YCtx) {
         TRACE(OX08a4Y_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
@@ -929,7 +943,10 @@ static RESULT OX08a4Y_IsiSetWBIss(IsiSensorHandle_t handle, const IsiSensorWb_t 
     result |= OX08a4Y_IsiWriteRegIss(handle, 0x5886, (rGain >> 8) & 0x7f);
     result |= OX08a4Y_IsiWriteRegIss(handle, 0x5887, rGain & 0xff);
 
-    memcpy(&pOX08a4YCtx->sensorWb, pWb, sizeof(IsiSensorWb_t));
+    pOX08a4YCtx->sensorWb.rGain  = rGain / 1024.0;
+    pOX08a4YCtx->sensorWb.grGain = yrGain / 1024.0;
+    pOX08a4YCtx->sensorWb.gbGain = ycGain / 1024.0;
+    pOX08a4YCtx->sensorWb.bGain  = cyGain / 1024.0;
 
     TRACE(OX08a4Y_INFO, "%s: (exit)\n", __func__);
     return result;
@@ -1041,9 +1058,9 @@ static RESULT OX08a4Y_IsiGetExpandCurveIss(IsiSensorHandle_t handle, IsiSensorCo
     const uint32_t expandYValue[34]={0, 1023, 2047, 2047, 4095, 8191, 12287, 16383, 20479, 24575, 32767, 40959, 49151, 57343,
                             65535, 81919, 98303, 114687, 131071, 163839, 196607, 262143, 393215, 524287, 786431, 1048575,
                             1572863, 2097151, 3145727, 4194303, 8388607, 12582911, 16777215, 16777215};
-    float slope[33] = {0};
+    float32_t slope[33] = {0};
     for(int i=0; i<33; i++){
-        slope[i] = (float)(expandYValue[i+1] - expandYValue[i])/(float)(expandXValue[i+1] - expandXValue[i]);
+        slope[i] = (float32_t)(expandYValue[i+1] - expandYValue[i])/(float32_t)(expandXValue[i+1] - expandXValue[i]);
     }
 
     for(int i=1; i<65; i++){

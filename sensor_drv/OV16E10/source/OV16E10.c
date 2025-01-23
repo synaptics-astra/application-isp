@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -110,6 +124,27 @@ static IsiSensorMode_t pov16e10_mode_info[] = {
             .gainDelayFrame = 1,
         },
         .fps       = 5 * ISI_FPS_QUANTIZE,
+        .hdrMode  = ISI_SENSOR_MODE_LINEAR,
+        .bitWidth = 10,
+        .bayerPattern = ISI_BPAT_BGGR,
+        .afMode = ISI_SENSOR_AF_MODE_PDAF,
+
+    },
+    {
+        .index     = 4,//type2 mode, code reference
+        .size      = {
+            .boundsWidth  = 1920,
+            .boundsHeight = 1080,
+            .top           = 0,
+            .left          = 0,
+            .width         = 1920,
+            .height        = 1080,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 1,
+            .gainDelayFrame = 1,
+        },
+        .fps       = 1 * ISI_FPS_QUANTIZE,
         .hdrMode  = ISI_SENSOR_MODE_LINEAR,
         .bitWidth = 10,
         .bayerPattern = ISI_BPAT_BGGR,
@@ -233,7 +268,7 @@ static RESULT OV16E10_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
     RESULT result = RET_SUCCESS;
     TRACE(OV16E10_INFO, "%s (enter)\n", __func__);
 
-    OV16E10_Context_t *pOV16E10Ctx = (OV16E10_Context_t *) malloc(sizeof(OV16E10_Context_t));
+    OV16E10_Context_t *pOV16E10Ctx = (OV16E10_Context_t *) osMalloc(sizeof(OV16E10_Context_t));
     if (!pOV16E10Ctx) {
         TRACE(OV16E10_ERROR, "%s: Can't allocate ov16e10 context\n", __func__);
         return (RET_OUTOFMEM);
@@ -265,7 +300,7 @@ static RESULT OV16E10_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
 
     result = HalAddRef(pOV16E10Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pOV16E10Ctx);
+        osFree(pOV16E10Ctx);
         return (result);
     }
 
@@ -279,7 +314,7 @@ static RESULT OV16E10_AecSetModeParameters(IsiSensorHandle_t handle, OV16E10_Con
 {
     RESULT result = RET_SUCCESS;
     uint16_t value = 0, regVal = 0;
-    float again = 0, dgain = 0;
+    float32_t again = 0, dgain = 0;
     TRACE(OV16E10_INFO, "%s%s: (enter)\n", __func__,pOV16E10Ctx->isAfpsRun ? "(AFPS)" : "");
 
     pOV16E10Ctx->aecIntegrationTimeIncrement = pOV16E10Ctx->oneLineExpTime;
@@ -302,7 +337,7 @@ static RESULT OV16E10_AecSetModeParameters(IsiSensorHandle_t handle, OV16E10_Con
     regVal = (value & 0x7f) << 7;
     OV16E10_IsiReadRegIss(handle, 0x3509, &value);
     regVal = regVal | ((value & 0xfe) >> 1);
-    again = (float)regVal/128.0f;
+    again = (float32_t)regVal/128.0f;
 
     OV16E10_IsiReadRegIss(handle, 0x350a, &value);
     regVal = (value & 0x0f) << 10;
@@ -310,7 +345,7 @@ static RESULT OV16E10_AecSetModeParameters(IsiSensorHandle_t handle, OV16E10_Con
     regVal = regVal | ((value & 0xFF) << 2);
     OV16E10_IsiReadRegIss(handle, 0x350c, &value);
     regVal = regVal | ((value & 0xc0) >> 6);
-    dgain = (float)regVal/1024.0f;
+    dgain = (float32_t)regVal/1024.0f;
     pOV16E10Ctx->aecCurGain = again * dgain;
 
     TRACE(OV16E10_INFO, "%s%s: (exit)\n", __func__,pOV16E10Ctx->isAfpsRun ? "(AFPS)" : "");
@@ -363,6 +398,11 @@ static RESULT OV16E10_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             case 3:
                 for (int i = 0; i<sizeof(OV16E10_mipi4lane_4k_PDAF_init) / sizeof(OV16E10_mipi4lane_4k_PDAF_init[0]); i++) {
                     OV16E10_IsiWriteRegIss(handle, OV16E10_mipi4lane_4k_PDAF_init[i][0], OV16E10_mipi4lane_4k_PDAF_init[i][1]);
+                }
+                break;
+            case 4:
+                for (int i = 0; i<sizeof(OV16E10_mipi4lane_1080p_Type2_PDAF_init) / sizeof(OV16E10_mipi4lane_1080p_Type2_PDAF_init[0]); i++) {
+                    OV16E10_IsiWriteRegIss(handle, OV16E10_mipi4lane_1080p_Type2_PDAF_init[i][0], OV16E10_mipi4lane_1080p_Type2_PDAF_init[i][1]);
                 }
                 break;
             default:
@@ -438,6 +478,21 @@ static RESULT OV16E10_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pOV16E10Ctx->dGain.max           = 15;
             pOV16E10Ctx->dGain.step          = (1.0f/1024.0f);
             break;
+        case 4:
+            pOV16E10Ctx->oneLineExpTime      = 0.00022;
+            pOV16E10Ctx->frameLengthLines    = 0x2e76;
+            pOV16E10Ctx->curFrameLengthLines = pOV16E10Ctx->frameLengthLines;
+            pOV16E10Ctx->maxIntegrationLine  = pOV16E10Ctx->curFrameLengthLines - 16;
+            pOV16E10Ctx->minIntegrationLine  = 8;
+            pOV16E10Ctx->aecMaxGain          = 255;
+            pOV16E10Ctx->aecMinGain          = 1.0;
+            pOV16E10Ctx->aGain.min           = 1.0;
+            pOV16E10Ctx->aGain.max           = 15.5;
+            pOV16E10Ctx->aGain.step          = (1.0f/128.0f);
+            pOV16E10Ctx->dGain.min           = 1.0;
+            pOV16E10Ctx->dGain.max           = 15;
+            pOV16E10Ctx->dGain.step          = (1.0f/1024.0f);
+            break;
         default:
             TRACE(OV16E10_INFO, "%s:not support sensor mode %d\n", __func__,pOV16E10Ctx->sensorMode.index);
             return RET_NOTSUPP;
@@ -484,11 +539,11 @@ static RESULT OV16E10_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOV16E10Ctx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOV16E10Ctx->isiCtx.halI2cHandle);
     (void)HalDelRef(pOV16E10Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOV16E10Ctx->isiCtx.halI2cHandle);
 
     MEMSET(pOV16E10Ctx, 0, sizeof(OV16E10_Context_t));
-    free(pOV16E10Ctx);
+    osFree(pOV16E10Ctx);
     TRACE(OV16E10_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -625,7 +680,7 @@ RESULT OV16E10_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
     again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 128);
     result = OV16E10_IsiWriteRegIss(handle, 0x3508,  (again & 0x3f80)>>7);
     result |= OV16E10_IsiWriteRegIss(handle, 0x3509, (again & 0x7f)<<1);
-    pOV16E10Ctx->curAgain = (float)again/128.0f;
+    pOV16E10Ctx->curAgain = (float32_t)again/128.0f;
 
     TRACE(OV16E10_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -646,7 +701,7 @@ RESULT OV16E10_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
     result = OV16E10_IsiWriteRegIss(handle,  0x350a, (dgain & 0x3c00)>>10);
     result |= OV16E10_IsiWriteRegIss(handle, 0x350b, (dgain & 0x3fc)>>2);
     result |= OV16E10_IsiWriteRegIss(handle, 0x350c, (dgain & 0x3)<<6);
-    pOV16E10Ctx->curDgain = (float)dgain/1024.0f;
+    pOV16E10Ctx->curDgain = (float32_t)dgain/1024.0f;
     pOV16E10Ctx->aecCurGain = pOV16E10Ctx->curAgain * pOV16E10Ctx->curDgain;
 
     TRACE(OV16E10_INFO, "%s: (exit)\n", __func__);
@@ -925,7 +980,7 @@ RESULT OV16E10_IsiFocusCreateIss(IsiSensorHandle_t handle)
 
     result = HalAddRef(pOV16E10Ctx->halMotorI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pOV16E10Ctx);
+        osFree(pOV16E10Ctx);
         return (result);
     }
 
@@ -975,6 +1030,7 @@ RESULT OV16E10_IsiFocusGetCalibrateIss(IsiSensorHandle_t handle, IsiFocusCalibAt
         pFocusCalib->pdInfo.ocl2x1Shield   = 0;
         pFocusCalib->pdInfo.bayerPattern   = ISI_BPAT_BGGR;
         pFocusCalib->pdInfo.bitWidth       = 16;//10bit
+        pFocusCalib->pdInfo.pdDistance     = 8;
         pFocusCalib->pdInfo.imageWidth     = 1920;
         pFocusCalib->pdInfo.imageHeight    = 1080;
         pFocusCalib->pdInfo.pdArea[0]      = 8;  //relate to sensor configure
@@ -998,11 +1054,12 @@ RESULT OV16E10_IsiFocusGetCalibrateIss(IsiSensorHandle_t handle, IsiFocusCalibAt
         pFocusCalib->pdInfo.correctRect[3] = 1080;
         break;
     
-    case 2:
+    case 3:
         pFocusCalib->pdInfo.sensorType     = ISI_PDAF_SENSOR_OCL2X1;
         pFocusCalib->pdInfo.ocl2x1Shield   = 0;
         pFocusCalib->pdInfo.bayerPattern   = ISI_BPAT_BGGR;
         pFocusCalib->pdInfo.bitWidth       = 10;
+        pFocusCalib->pdInfo.pdDistance     = 8;
         pFocusCalib->pdInfo.imageWidth     = 3840;
         pFocusCalib->pdInfo.imageHeight    = 2160;
         pFocusCalib->pdInfo.pdArea[0]      = 0;
@@ -1024,6 +1081,35 @@ RESULT OV16E10_IsiFocusGetCalibrateIss(IsiSensorHandle_t handle, IsiFocusCalibAt
         pFocusCalib->pdInfo.correctRect[1] = 0;
         pFocusCalib->pdInfo.correctRect[2] = 3840;
         pFocusCalib->pdInfo.correctRect[3] = 2160;
+        break;
+
+    case 4:
+        pFocusCalib->pdInfo.sensorType     = ISI_PDAF_SENSOR_OCL2X1;
+        pFocusCalib->pdInfo.ocl2x1Shield   = 0;
+        pFocusCalib->pdInfo.bayerPattern   = ISI_BPAT_BGGR;
+        pFocusCalib->pdInfo.bitWidth       = 16;//10bit
+        pFocusCalib->pdInfo.pdDistance     = 8;
+        pFocusCalib->pdInfo.imageWidth     = 1920;
+        pFocusCalib->pdInfo.imageHeight    = 1080;
+        pFocusCalib->pdInfo.pdArea[0]      = 8;  //relate to sensor configure
+        pFocusCalib->pdInfo.pdArea[1]      = 4;
+        // if filp or mirror, pd position will change at the same time
+        pFocusCalib->pdInfo.pdShiftL2R[0]  = 1;
+        pFocusCalib->pdInfo.pdShiftL2R[1]  = 0;
+        MEMSET(&pFocusCalib->pdInfo.pdShiftMark, 0, sizeof(pFocusCalib->pdInfo.pdShiftMark));
+        pFocusCalib->pdInfo.pdShiftMark[0] = 6;
+        pFocusCalib->pdInfo.pdShiftMark[1] = 3;
+        pFocusCalib->pdInfo.pdShiftMark[2] = 14;
+        pFocusCalib->pdInfo.pdShiftMark[3] = 3;
+        pFocusCalib->pdInfo.pdShiftMark[4] = 2;
+        pFocusCalib->pdInfo.pdShiftMark[5] = 11;
+        pFocusCalib->pdInfo.pdShiftMark[6] = 10;
+        pFocusCalib->pdInfo.pdShiftMark[7] = 11;
+
+        pFocusCalib->pdInfo.correctRect[0] = 0;
+        pFocusCalib->pdInfo.correctRect[1] = 0;
+        pFocusCalib->pdInfo.correctRect[2] = 1920;
+        pFocusCalib->pdInfo.correctRect[3] = 1080;
         break;
     default:
         // ISI_PDAF_ISI_SENSOR_TYPE_MAX means not support PDAF

@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -190,7 +204,7 @@ static RESULT OV2778_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
     RESULT result = RET_SUCCESS;
     TRACE(OV2778_INFO, "%s (enter)\n", __func__);
 
-    OV2778_Context_t *pOV2778Ctx = (OV2778_Context_t *) malloc(sizeof(OV2778_Context_t));
+    OV2778_Context_t *pOV2778Ctx = (OV2778_Context_t *) osMalloc(sizeof(OV2778_Context_t));
     if (!pOV2778Ctx) {
         TRACE(OV2778_ERROR, "%s: Can't allocate ov2778 context\n", __func__);
         return (RET_OUTOFMEM);
@@ -222,7 +236,7 @@ static RESULT OV2778_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     result = HalAddRef(pOV2778Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pOV2778Ctx);
+        osFree(pOV2778Ctx);
         return (result);
     }
 
@@ -236,7 +250,7 @@ static RESULT OV2778_AecSetModeParameters(IsiSensorHandle_t handle, OV2778_Conte
 {
     RESULT result = RET_SUCCESS;
     uint16_t value = 0, regVal = 0, again = 0;
-    float dgain = 0;
+    float32_t dgain = 0;
     TRACE(OV2778_INFO, "%s%s: (enter)\n", __func__, pOV2778Ctx->isAfpsRun ? "(AFPS)" : "");
 
     pOV2778Ctx->aecIntegrationTimeIncrement = pOV2778Ctx->oneLineExpTime;
@@ -411,11 +425,11 @@ static RESULT OV2778_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOV2778Ctx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOV2778Ctx->isiCtx.halI2cHandle);
     (void)HalDelRef(pOV2778Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOV2778Ctx->isiCtx.halI2cHandle);
 
     MEMSET(pOV2778Ctx, 0, sizeof(OV2778_Context_t));
-    free(pOV2778Ctx);
+    osFree(pOV2778Ctx);
     TRACE(OV2778_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -543,7 +557,7 @@ RESULT OV2778_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV2778_INFO, "%s: (enter)\n", __func__);
-    float newGain = 0.0f, gain = 0.0f, dGainHcg = 0.0f, dGainLcg = 0.0f;
+    float32_t newGain = 0.0f, gain = 0.0f, dGainHcg = 0.0f, dGainLcg = 0.0f;
     uint32_t gainHcg = 0, gainLcg = 0, againHcg = 0, againLcg = 0;
     uint16_t data = 0;
 
@@ -855,7 +869,7 @@ static RESULT OV2778_IsiSetBlcIss(IsiSensorHandle_t handle, const IsiSensorBlc_t
     if (pBlc == NULL)
         return RET_NULL_POINTER;
 
-    float rGain=0, grGain=0, gbGain=0, bGain=0;
+    float32_t rGain=0, grGain=0, gbGain=0, bGain=0;
     rGain  = pOV2778Ctx->sensorWb.rGain;
     grGain = pOV2778Ctx->sensorWb.grGain;
     gbGain = pOV2778Ctx->sensorWb.gbGain;

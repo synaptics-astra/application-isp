@@ -44,21 +44,11 @@ SET_TARGET_PROPERTIES(${module}_shared PROPERTIES SOVERSION       ${${module}_IN
 SET_TARGET_PROPERTIES(${module}_shared PROPERTIES VERSION         ${${module}_INTERFACE_CURRENT}.${${module}_INTERFACE_REVISION}.${${module}_INTERFACE_AGE})
 SET_TARGET_PROPERTIES(${module}_shared PROPERTIES FRAMEWORK       TRUE PUBLIC_HEADER "${pub_headers}")
 
-# add convenience target: put sensor driver into the 'bin' output dir as well
-if ( NOT ANDROID )
-add_custom_target(${module}.drv
-                  ALL
-                  COMMAND ${CMAKE_COMMAND} -E copy ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.so.${${module}_INTERFACE_CURRENT} ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/${module}.drv
-                  DEPENDS ${module}_shared
-                  COMMENT "Copying ${module} driver module"
-                  )
-endif()
-
 add_custom_target(${module}.init
                   ALL
-                  COMMAND ${CMAKE_COMMAND} -E copy ${DRIVER_TOP_DIRECTORY}/isi/sensor_drv/OS02c10/source/OS02c10_mipi4lane_1080p_init.txt  ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/OS02c10_mipi4lane_1080p_init.txt
-                  COMMAND ${CMAKE_COMMAND} -E copy ${DRIVER_TOP_DIRECTORY}/isi/sensor_drv/OS02c10/source/OS02c10_mipi4lane_1080p_2exp_init.txt  ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/OS02c10_mipi4lane_1080p_2exp_init.txt
-                  COMMAND ${CMAKE_COMMAND} -E copy ${DRIVER_TOP_DIRECTORY}/isi/sensor_drv/OS02c10/source/OS02c10_mipi4lane_1080p_3exp_init.txt  ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/OS02c10_mipi4lane_1080p_3exp_init.txt
+                  COMMAND ${CMAKE_COMMAND} -E copy ${UNITS_TOP_DIRECTORY}/isi/sensor_drv/OS02c10/source/OS02c10_mipi4lane_1080p_init.txt  ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/OS02c10_mipi4lane_1080p_init.txt
+                  COMMAND ${CMAKE_COMMAND} -E copy ${UNITS_TOP_DIRECTORY}/isi/sensor_drv/OS02c10/source/OS02c10_mipi4lane_1080p_2exp_init.txt  ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/OS02c10_mipi4lane_1080p_2exp_init.txt
+                  COMMAND ${CMAKE_COMMAND} -E copy ${UNITS_TOP_DIRECTORY}/isi/sensor_drv/OS02c10/source/OS02c10_mipi4lane_1080p_3exp_init.txt  ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/OS02c10_mipi4lane_1080p_3exp_init.txt
 		  DEPENDS ${module}_shared
                   COMMENT "Copying ${module} init files"
                   )
@@ -70,7 +60,7 @@ install(TARGETS ${module}_shared
         )
 
 # create common targets for this module
-include(${DRIVER_TOP_DIRECTORY}/targets.cmake)
+include(${UNITS_TOP_DIRECTORY}/targets.cmake)
 
 # create calib data targets
 add_subdirectory(calib)

@@ -9,6 +9,7 @@
 #include <hal/hal_api.h>
 #include <isi/isi_common.h>
 #include <isi/isi_vvsensor.h>
+#include "isi_priv.h"
 
 
 

@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2023 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 /* VeriSilicon 2023 */
 
@@ -19,7 +33,6 @@
  *   ADD_DESCRIPTION_HERE
  *
  *****************************************************************************/
-
 
 #include "sensor_drv.h"
 
@@ -33,29 +46,12 @@ CREATE_TRACER(SENSOR_DRV_INFO , "SENSOR_INFO: ", INFO, 1);
 CREATE_TRACER(SENSOR_DRV_ERROR , "SENSOR_ERROR: ", ERROR, 1);
 
 
-extern IsiCamDrvConfig_t OS08a20_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t IMX681_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t OV16E10_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t OV2775_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t OV2778_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t AR0820_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t OV10652_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t OX08a4Y_IsiCamDrvConfig;
-//extern IsiCamDrvConfig_t OX03a10_IsiCamDrvConfig;
-//extern IsiCamDrvConfig_t OS02k10_IsiCamDrvConfig;
-//extern IsiCamDrvConfig_t OS02c10_IsiCamDrvConfig;
-//extern IsiCamDrvConfig_t IMX334_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t IMX327_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t OV13b10_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t OV50a40_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t GC5603_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t SC1330T_IsiCamDrvConfig;
-extern IsiCamDrvConfig_t OS04a10_IsiCamDrvConfig;
 #ifdef DOLPHIN
 extern IsiCamDrvConfig_t IMX258_IsiCamDrvConfig;
 extern IsiCamDrvConfig_t IMX415_IsiCamDrvConfig;
 extern IsiCamDrvConfig_t OV5647_IsiCamDrvConfig;
 #endif
+
 
 RESULT SensorDrvConfigMapping
 (
@@ -71,20 +67,6 @@ RESULT SensorDrvConfigMapping
     }
 
     SensorDrvConfig_t sensorConfig[] = {
-        {"os08a20", &OS08a20_IsiCamDrvConfig},
-        {"imx681" , &IMX681_IsiCamDrvConfig },
-        {"ov16e10", &OV16E10_IsiCamDrvConfig},
-        {"ov2775" , &OV2775_IsiCamDrvConfig },
-        {"ov2778" , &OV2778_IsiCamDrvConfig },
-        {"ar0820" , &AR0820_IsiCamDrvConfig },
-        {"ov10652", &OV10652_IsiCamDrvConfig},
-        {"ox08a4y", &OX08a4Y_IsiCamDrvConfig},
-        {"imx327" ,  &IMX327_IsiCamDrvConfig },
-        {"ov13b10" , &OV13b10_IsiCamDrvConfig },
-        {"ov50a40" , &OV50a40_IsiCamDrvConfig },
-        {"gc5603" , &GC5603_IsiCamDrvConfig },
-        {"sc1330t" , &SC1330T_IsiCamDrvConfig },
-        {"os04a10" , &OS04a10_IsiCamDrvConfig },
 #ifdef DOLPHIN
         {"imx258" , &IMX258_IsiCamDrvConfig },
         {"imx415" , &IMX415_IsiCamDrvConfig },
@@ -103,4 +85,3 @@ RESULT SensorDrvConfigMapping
     TRACE(SENSOR_DRV_ERROR, "%s: Unsupport sensor %s !\n", __func__,pSensorName);
     return RET_NOTSUPP;
 }
-

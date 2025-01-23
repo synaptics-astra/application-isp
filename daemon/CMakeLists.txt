@@ -36,3 +36,5 @@ target_link_libraries(
     t_common_c
     mc_media_device
 )
+
+#add_subdirectory(video_test)

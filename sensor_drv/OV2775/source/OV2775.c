@@ -1,22 +1,34 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/types.h>
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
 #include <common/return_codes.h>
 #include <common/misc.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
 #include "isi.h"
 #include "isi_iss.h"
 #include "isi_vvsensor.h"
@@ -29,16 +41,6 @@ CREATE_TRACER(OV2775_ERROR, "OV2775: ", ERROR,   1);
 CREATE_TRACER(OV2775_DEBUG,     "OV2775: ", INFO, 1);
 CREATE_TRACER(OV2775_REG_INFO , "OV2775: ", INFO, 1);
 CREATE_TRACER(OV2775_REG_DEBUG, "OV2775: ", INFO, 1);
-
-#ifdef SUBDEV_V4L2
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <linux/videodev2.h>
-#include <linux/v4l2-subdev.h>
-#undef TRACE
-#define TRACE(x, ...)
-#endif
 
 #define OV2775_MIN_GAIN_STEP    (1.0f/256.0f)  /**< min gain step size used by GUI (hardware min = 1/16; 1/16..32/16 depending on actual gain) */
 
@@ -230,7 +232,7 @@ static RESULT OV2775_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
     RESULT result = RET_SUCCESS;
     TRACE(OV2775_INFO, "%s (enter)\n", __func__);
 
-    OV2775_Context_t *pOV2775Ctx = (OV2775_Context_t *) malloc(sizeof(OV2775_Context_t));
+    OV2775_Context_t *pOV2775Ctx = (OV2775_Context_t *) osMalloc(sizeof(OV2775_Context_t));
     if (!pOV2775Ctx) {
         TRACE(OV2775_ERROR, "%s: Can't allocate ov2775 context\n",__func__);
         return (RET_OUTOFMEM);
@@ -262,7 +264,7 @@ static RESULT OV2775_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     result = HalAddRef(pOV2775Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pOV2775Ctx);
+        osFree(pOV2775Ctx);
         return (result);
     }
 
@@ -276,8 +278,8 @@ static RESULT OV2775_AecSetModeParameters(IsiSensorHandle_t handle, OV2775_Conte
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV2775_INFO, "%s%s: (enter)\n", __func__,pOV2775Ctx->isAfpsRun ? "(AFPS)" : "");
-    uint16_t value = 0, regVal = 0, again = 0;
-    float dgain = 0;
+    uint16_t value = 0, regVal = 0, againH = 0, againL = 0, againVS = 0;
+    float32_t dgainH = 0, dgainL = 0, dgainVS = 0;
 
     pOV2775Ctx->aecIntegrationTimeIncrement = pOV2775Ctx->oneLineExpTime;
     pOV2775Ctx->aecMinIntegrationTime       = pOV2775Ctx->oneLineExpTime * pOV2775Ctx->minIntegrationLine;
@@ -291,7 +293,6 @@ static RESULT OV2775_AecSetModeParameters(IsiSensorHandle_t handle, OV2775_Conte
     pOV2775Ctx->aecGainIncrement = OV2775_MIN_GAIN_STEP;
 
     //reflects the state of the sensor registers, must equal default settings
-
     OV2775_IsiReadRegIss(handle, 0x30b6, &value);
     regVal = value << 8;
     OV2775_IsiReadRegIss(handle, 0x30b7, &value);
@@ -299,36 +300,56 @@ static RESULT OV2775_AecSetModeParameters(IsiSensorHandle_t handle, OV2775_Conte
     pOV2775Ctx->aecCurIntegrationTime = regVal * pOV2775Ctx->oneLineExpTime;
     pOV2775Ctx->aecCurLongIntegrationTime = regVal * pOV2775Ctx->oneLineExpTime;
 
+    OV2775_IsiReadRegIss(handle, 0x30b8, &value);
+    regVal = value << 8;
+    OV2775_IsiReadRegIss(handle, 0x30b9, &value);
+    regVal = regVal | (value & 0xFF);
+    pOV2775Ctx->aecCurVSIntegrationTime = regVal * pOV2775Ctx->oneLineExpTime;
+
+    OV2775_IsiReadRegIss(handle, 0x315a, &value);
+    regVal = (value & 0xff) << 8;
+    OV2775_IsiReadRegIss(handle, 0x315b, &value);
+    regVal = regVal | (value & 0xFF);
+    dgainH = regVal/256.0f;
+
+    OV2775_IsiReadRegIss(handle, 0x315c, &value);
+    regVal = (value & 0xff) << 8;
+    OV2775_IsiReadRegIss(handle, 0x315d, &value);
+    regVal = regVal | (value & 0xFF);
+    dgainL = regVal/256.0f;
+
+    OV2775_IsiReadRegIss(handle, 0x315e, &value);
+    regVal = (value & 0xff) << 8;
+    OV2775_IsiReadRegIss(handle, 0x315f, &value);
+    regVal = regVal | (value & 0xFF);
+    dgainVS = regVal/256.0f;
+
+    pOV2775Ctx->curLongDgain = dgainH;
+    pOV2775Ctx->curDgain = dgainL;
+    pOV2775Ctx->curVSDgain = dgainVS;
+
+    OV2775_IsiReadRegIss(handle, 0x30bb, &value);
+    regVal = value & 0x03;
+    againH = 1 << regVal;
+    regVal = value & 0x0c;
+    againL = 1 << (regVal >> 2);
+    regVal = value & 0x30;
+    againVS = 1 << (regVal >> 4);
+
+    pOV2775Ctx->curLongAgain = againH;
+    pOV2775Ctx->curAgain = againL;
+    pOV2775Ctx->curVSAgain = againVS;
+
     if(pOV2775Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR){
-        OV2775_IsiReadRegIss(handle, 0x315a, &value);
-        regVal = (value & 0xff) << 8;
-        OV2775_IsiReadRegIss(handle, 0x315b, &value);
-        regVal = regVal | (value & 0xFF);
-        dgain = regVal/256.0f;
-
-        OV2775_IsiReadRegIss(handle, 0x30bb, &value);
-        regVal = value & 0x03;
-        again = 1 << regVal;
-        pOV2775Ctx->aecCurGain = again * dgain;
+        pOV2775Ctx->aecCurGain = againH * dgainH;
     } else {
-        /* HCG analog gain and digital gain*/
-        OV2775_IsiReadRegIss(handle, 0x315a, &value);
-        regVal = (value & 0xff) << 8;
-        OV2775_IsiReadRegIss(handle, 0x315b, &value);
-        regVal = regVal | (value & 0xFF);
-        dgain = regVal/256.0f;
-
-        OV2775_IsiReadRegIss(handle, 0x30bb, &value);
-        regVal = value & 0x03;
-        again = 1 << regVal;
-        pOV2775Ctx->aecCurGain = again * dgain;//dpf limit
-        pOV2775Ctx->aecCurLongGain = again * dgain;
+        pOV2775Ctx->aecCurGain = againH * dgainH;//dpf limit
+        pOV2775Ctx->aecCurLongGain = againH * dgainH;
     }
     pOV2775Ctx->oldGain               = 0;
     pOV2775Ctx->oldIntegrationTime    = 0;
 
     TRACE(OV2775_INFO, "%s%s: (exit)\n", __func__,pOV2775Ctx->isAfpsRun ? "(AFPS)" : "");
-
     return (result);
 }
 
@@ -411,16 +432,16 @@ static RESULT OV2775_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pOV2775Ctx->maxIntegrationLine  = pOV2775Ctx->curFrameLengthLines - 2;
             pOV2775Ctx->minIntegrationLine  = 1;
             pOV2775Ctx->aecMaxGain          = 320;
-            pOV2775Ctx->aecMinGain          = 3.0;
-            pOV2775Ctx->maxVSIntegrationLine  = 40;
+            pOV2775Ctx->aecMinGain          = 1.0;
+            pOV2775Ctx->maxVSIntegrationLine  = 500;//40
             pOV2775Ctx->minVSIntegrationLine  = 1;
-            pOV2775Ctx->aGain.min           = 3.0;
+            pOV2775Ctx->aGain.min           = 1.0;
             pOV2775Ctx->aGain.max           = 320;
             pOV2775Ctx->aGain.step          = (1.0f/256.0f);
             pOV2775Ctx->dGain.min           = 1.0;
             pOV2775Ctx->dGain.max           = 1.0;
             pOV2775Ctx->dGain.step          = (1.0f/256.0f);
-            pOV2775Ctx->aVSGain.min         = 3.0;
+            pOV2775Ctx->aVSGain.min         = 1.0;
             pOV2775Ctx->aVSGain.max         = 320;
             pOV2775Ctx->aVSGain.step        = (1.0f/256.0f);
             pOV2775Ctx->dVSGain.min         = 1.0;
@@ -488,11 +509,11 @@ static RESULT OV2775_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOV2775Ctx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOV2775Ctx->isiCtx.halI2cHandle);
     (void)HalDelRef(pOV2775Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOV2775Ctx->isiCtx.halI2cHandle);
 
     MEMSET(pOV2775Ctx, 0, sizeof(OV2775_Context_t));
-    free(pOV2775Ctx);
+    osFree(pOV2775Ctx);
     TRACE(OV2775_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -656,7 +677,7 @@ RESULT OV2775_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV2775_INFO, "%s: (enter)\n", __func__);
-    float longGain = 0, newGain = 0, vsGain = 0, dGainHcg = 0.0f, dGainLcg = 0.0f, dGainVs = 0.0f, gain = 0.0f;
+    float32_t longGain = 0, newGain = 0, vsGain = 0, dGainHcg = 0.0f, dGainLcg = 0.0f, dGainVs = 0.0f, gain = 0.0f;
     uint32_t gainHcg = 0, gainLcg = 0, againHcg = 0, aGainLcg = 0, aGainVs = 0, gainVs = 0;
     uint16_t data = 0;
 
@@ -710,8 +731,9 @@ RESULT OV2775_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
         if(longGain > pOV2775Ctx->aecMaxGain)  longGain = pOV2775Ctx->aecMaxGain;
         if(newGain  > pOV2775Ctx->aecMaxGain)  newGain = pOV2775Ctx->aecMaxGain;
         if (longGain < 3.0) {
-            dGainHcg = 3.0 / 2.0;
-            againHcg = 0x01;
+            //dGainHcg = 3.0 / 2.0;
+            dGainHcg = longGain;
+            againHcg = 0x00;
         } else if (longGain < 4.0) {
             dGainHcg = longGain / 2.0;
             againHcg = 0x01;
@@ -724,8 +746,9 @@ RESULT OV2775_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
         }
 
         if (newGain < 3.0) {
-            dGainLcg = 3.0 / 2.0;
-            aGainLcg = 0x01;
+            //dGainLcg = 3.0 / 2.0;
+            dGainLcg = longGain;
+            aGainLcg = 0x00;
         } else if (newGain < 4.0) {
             dGainLcg = newGain / 2.0;
             aGainLcg = 0x01;
@@ -980,7 +1003,7 @@ RESULT OV2775_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_
     return (result);
 }
 
-static RESULT OV2775_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT OV2775_SetIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV2775_INFO, "%s: (enter)\n", __func__);
@@ -1013,7 +1036,7 @@ static RESULT OV2775_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTi
     return (result);
 }
 
-static RESULT OV2775_SetVSIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT OV2775_SetVSIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV2775_INFO, "%s: (enter)\n", __func__);
@@ -1058,7 +1081,7 @@ RESULT OV2775_IsiGetIntTimeIss(IsiSensorHandle_t handle, IsiSensorIntTime_t *pSe
     if (!pSensorIntTime) return (RET_NULL_POINTER);
 
     if (pOV2775Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR || pOV2775Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_NATIVE) {
-        pSensorIntTime->intTime[ISI_TRI_EXP_S_PARAS] = pOV2775Ctx->aecCurIntegrationTime;
+        pSensorIntTime->intTime[ISI_LINEAR_PARAS] = pOV2775Ctx->aecCurIntegrationTime;
 
     } else if (pOV2775Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
         pSensorIntTime->intTime[ISI_TRI_EXP_L_PARAS]   = pOV2775Ctx->aecCurLongIntegrationTime;
@@ -1165,7 +1188,7 @@ static RESULT OV2775_IsiSetBlcIss(IsiSensorHandle_t handle, const IsiSensorBlc_t
     if (pBlc == NULL)
         return RET_NULL_POINTER;
 
-    float rGain=0, grGain=0, gbGain=0, bGain=0;
+    float32_t rGain=0, grGain=0, gbGain=0, bGain=0;
     rGain  = pOV2775Ctx->sensorWb.rGain;
     grGain = pOV2775Ctx->sensorWb.grGain;
     gbGain = pOV2775Ctx->sensorWb.gbGain;
@@ -1273,7 +1296,7 @@ static RESULT OV2775_IsiSetWBIss(IsiSensorHandle_t handle, const IsiSensorWb_t *
         result |= OV2775_IsiWriteRegIss(handle, 0x3368, (rGain >> 8) & 0xff);
         result |= OV2775_IsiWriteRegIss(handle, 0x3369,  rGain & 0xff);
         update_flag = true;
-        pOV2775Ctx->sensorWb.rGain = pWb->rGain;
+        pOV2775Ctx->sensorWb.rGain = rGain/256.0;
     }
     if (grGain != pOV2775Ctx->sensorWb.grGain) {
         result |= OV2775_IsiWriteRegIss(handle, 0x3362, (grGain >> 8) & 0xff);
@@ -1281,7 +1304,7 @@ static RESULT OV2775_IsiSetWBIss(IsiSensorHandle_t handle, const IsiSensorWb_t *
         result |= OV2775_IsiWriteRegIss(handle, 0x336a, (grGain >> 8) & 0xff);
         result |= OV2775_IsiWriteRegIss(handle, 0x336b,  grGain & 0xff);
         update_flag = true;
-        pOV2775Ctx->sensorWb.grGain = pWb->grGain;
+        pOV2775Ctx->sensorWb.grGain = grGain/256.0;
     }
     if (gbGain != pOV2775Ctx->sensorWb.gbGain) {
         result |= OV2775_IsiWriteRegIss(handle, 0x3364, (gbGain >> 8) & 0xff);
@@ -1289,7 +1312,7 @@ static RESULT OV2775_IsiSetWBIss(IsiSensorHandle_t handle, const IsiSensorWb_t *
         result |= OV2775_IsiWriteRegIss(handle, 0x336c, (gbGain >> 8) & 0xff);
         result |= OV2775_IsiWriteRegIss(handle, 0x336d,  gbGain & 0xff);
         update_flag = true;
-        pOV2775Ctx->sensorWb.gbGain = pWb->gbGain;
+        pOV2775Ctx->sensorWb.gbGain = gbGain/256.0;
     }
     if (bGain != pOV2775Ctx->sensorWb.bGain) {
         result |= OV2775_IsiWriteRegIss(handle, 0x3366, (bGain >> 8) & 0xff);
@@ -1297,7 +1320,7 @@ static RESULT OV2775_IsiSetWBIss(IsiSensorHandle_t handle, const IsiSensorWb_t *
         result |= OV2775_IsiWriteRegIss(handle, 0x336e, (bGain >> 8) & 0xff);
         result |= OV2775_IsiWriteRegIss(handle, 0x336f,  bGain & 0xff);
         update_flag = true;
-        pOV2775Ctx->sensorWb.bGain = pWb->bGain;
+        pOV2775Ctx->sensorWb.bGain = bGain/256.0;
     }
 
     if (update_flag) {

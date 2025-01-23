@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -332,7 +346,7 @@ static RESULT IMX681_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
     RESULT result = RET_SUCCESS;
     TRACE(IMX681_INFO, "%s (enter)\n", __func__);
 
-    IMX681_Context_t *pIMX681Ctx = (IMX681_Context_t *) malloc(sizeof(IMX681_Context_t));
+    IMX681_Context_t *pIMX681Ctx = (IMX681_Context_t *) osMalloc(sizeof(IMX681_Context_t));
     if (!pIMX681Ctx) {
         TRACE(IMX681_ERROR, "%s: Can't allocate imx681 context\n",__func__);
         return (RET_OUTOFMEM);
@@ -365,7 +379,7 @@ static RESULT IMX681_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     result = HalAddRef(pIMX681Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pIMX681Ctx);
+        osFree(pIMX681Ctx);
         return (result);
     }
 
@@ -383,7 +397,7 @@ static RESULT IMX681_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     result = HalAddRef(pIMX681Ctx->halEEPROMI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pIMX681Ctx);
+        osFree(pIMX681Ctx);
         return (result);
     }
 
@@ -399,7 +413,7 @@ static RESULT IMX681_AecSetModeParameters(IsiSensorHandle_t handle, IMX681_Conte
 {
     uint32_t regVal = 0;
     uint16_t value = 0;
-    float fgain = 0;
+    float32_t fgain = 0;
     RESULT result = RET_SUCCESS;
     TRACE(IMX681_INFO, "%s%s: (enter)\n", __func__,pIMX681Ctx->isAfpsRun ? "(AFPS)" : "");
 
@@ -426,7 +440,7 @@ static RESULT IMX681_AecSetModeParameters(IsiSensorHandle_t handle, IMX681_Conte
         regVal = (value << 8);
         IMX681_IsiReadRegIss(handle, 0x020f, &value);
         regVal = regVal | (value & 0xFF);
-        fgain = (float)regVal/16;
+        fgain = (float32_t)regVal/16;
     }
     pIMX681Ctx->aecCurGain            = fgain;
 
@@ -721,7 +735,7 @@ static RESULT IMX681_IsiReleaseIss(IsiSensorHandle_t handle)
     (void)HalDelRef(pIMX681Ctx->halEEPROMI2cHandle, HAL_DEV_I2C);
 #endif
     MEMSET(pIMX681Ctx, 0, sizeof(IMX681_Context_t));
-    free(pIMX681Ctx);
+    osFree(pIMX681Ctx);
     TRACE(IMX681_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -860,7 +874,7 @@ RESULT IMX681_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
         if( dgain <= 256) dgain = 256;
     }
 
-#ifdef  H1V1
+#ifdef H1V1
         result |= IMX681_IsiWriteRegIss(handle, 0x0204, (again >> 8) & 0xff);
         result |=  IMX681_IsiWriteRegIss(handle, 0x0205, again & 0xff );
 #endif
@@ -1047,13 +1061,13 @@ RESULT IMX681_IsiSetFpsIss(IsiSensorHandle_t handle, uint32_t fps)
 
     NewVts = pIMX681Ctx->frameLengthLines*pIMX681Ctx->sensorMode.fps / fps;
 
-    #ifdef  H1V1
+    #ifdef H1V1
     result  =  IMX681_IsiWriteRegIss(handle, 0x033d, NewVts >> 16);
     result |=  IMX681_IsiWriteRegIss(handle, 0x033e, ((NewVts >> 8) & 0xff));
     result |=  IMX681_IsiWriteRegIss(handle, 0x033f, NewVts & 0xff);
     #endif
 
-    #ifdef  H8V8
+    #ifdef H8V8
     result |=  IMX681_IsiWriteRegIss(handle, 0xe819, NewVts >> 16);
     result |=  IMX681_IsiWriteRegIss(handle, 0xe81a, ((NewVts >> 8) & 0xff));
     result |=  IMX681_IsiWriteRegIss(handle, 0xe81b, NewVts & 0xff);

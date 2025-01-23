@@ -29,6 +29,8 @@ if(${STATIC_BUILD} STREQUAL 0)
     if(${DUMMY_BUILD} STREQUAL 0)
         add_library(${module}_shared SHARED ${libsources})
 
+        message("IMX258 SHARED = ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.so.${${module}_INTERFACE_CURRENT}")
+
         # install the sensor driver as well, but to 'bin' location!
         install(FILES       ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.so.${${module}_INTERFACE_CURRENT}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
@@ -37,6 +39,7 @@ if(${STATIC_BUILD} STREQUAL 0)
 
     else(${DUMMY_BUILD} STREQUAL 0)
         add_library(${module}_shared SHARED)
+        message("Dummy Build")
     endif(${DUMMY_BUILD} STREQUAL 0)
 
     SET_TARGET_PROPERTIES(${module}_shared PROPERTIES OUTPUT_NAME     ${module})
@@ -64,6 +67,8 @@ elseif(${STATIC_BUILD} STREQUAL 1)
     if(${DUMMY_BUILD} STREQUAL 0)
         add_library(${module}_static STATIC ${libsources})
 
+        message("2 IMX258 Static = ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.a.${${module}_INTERFACE_CURRENT}")
+
         # install the sensor driver as well, but to 'bin' location!
     install(FILES       ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.a.${${module}_INTERFACE_CURRENT}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
@@ -82,6 +87,8 @@ elseif(${STATIC_BUILD} STREQUAL 1)
 
     # add convenience target: put sensor driver into the 'bin' output dir as well
     if ( NOT ANDROID )
+    message("3 IMX258 Custom target = ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.a ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/${module}.drv")
+
     add_custom_target(${module}.drv
                     ALL
                     COMMAND ${CMAKE_COMMAND} -E copy ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.a ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/${module}.drv
@@ -97,7 +104,7 @@ elseif(${STATIC_BUILD} STREQUAL 1)
             )
 endif()
 # create common targets for this module
-include(${DRIVER_TOP_DIRECTORY}/targets.cmake)
+include(${UNITS_TOP_DIRECTORY}/targets.cmake)
 
 # create calib data targets
-add_subdirectory(calib)
+#add_subdirectory(calib)

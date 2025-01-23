@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -366,7 +380,7 @@ static RESULT AR0820_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
     RESULT result = RET_SUCCESS;
     TRACE(AR0820_INFO, "%s (enter)\n", __func__);
 
-    AR0820_Context_t *pAR0820Ctx = (AR0820_Context_t *) malloc(sizeof(AR0820_Context_t));
+    AR0820_Context_t *pAR0820Ctx = (AR0820_Context_t *) osMalloc(sizeof(AR0820_Context_t));
     if (!pAR0820Ctx) {
         TRACE(AR0820_ERROR, "%s: Can't allocate ar0820 context\n", __func__);
         return (RET_OUTOFMEM);
@@ -398,7 +412,7 @@ static RESULT AR0820_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensorH
 
     result = HalAddRef(pAR0820Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pAR0820Ctx);
+        osFree(pAR0820Ctx);
         return (result);
     }
 
@@ -431,19 +445,24 @@ static RESULT AR0820_AecSetModeParameters(IsiSensorHandle_t handle, AR0820_Conte
     cgain = value & 0x07;
     AR0820_IsiReadRegIss(handle, 0x336a, &value);
     fgain = value & 0x0f;
-    pAR0820Ctx->aecCurGain = (float)((1 << cgain) * (1 + (float)(fgain/16)));
-    pAR0820Ctx->aecCurLongGain = (float)((1 << cgain) * (1 + (float)(fgain/16)));
+    pAR0820Ctx->aecCurGain = (float32_t)((1 << cgain) * (1 + (float32_t)(fgain/16)));
+    pAR0820Ctx->aecCurLongGain = (float32_t)((1 << cgain) * (1 + (float32_t)(fgain/16)));
 
     AR0820_IsiReadRegIss(handle, 0x3012, &value);
     pAR0820Ctx->aecCurIntegrationTime = value * pAR0820Ctx->oneLineExpTime;
     pAR0820Ctx->aecCurLongIntegrationTime = value * pAR0820Ctx->oneLineExpTime;
+
+	//init
+	pAR0820Ctx->nativeHdrRatio[0] = 16.0;
+	pAR0820Ctx->nativeHdrRatio[1] = 8.0;
+	pAR0820Ctx->nativeHdrRatio[2] = 4.0;
 
     TRACE(AR0820_INFO, "%s%s: (exit)\n", __func__, pAR0820Ctx->isAfpsRun ? "(AFPS)" : "");
 
     return (result);
 }
 
-static RESULT AR0820_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode) 
+static RESULT AR0820_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
 {
     AR0820_Context_t *pAR0820Ctx = (AR0820_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -715,7 +734,7 @@ static RESULT AR0820_IsiReleaseIss(IsiSensorHandle_t handle)
     (void)HalDelRef(pAR0820Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
 
     MEMSET(pAR0820Ctx, 0, sizeof(AR0820_Context_t));
-    free(pAR0820Ctx);
+    osFree(pAR0820Ctx);
 
     TRACE(AR0820_INFO, "%s (exit)\n", __func__);
     return (result);
@@ -869,11 +888,11 @@ static RESULT AR0820_IsiGetAeBaseInfoIss(IsiSensorHandle_t handle, IsiAeBaseInfo
     pAeBaseInfo->dShortGain            = pAR0820Ctx->dGain;
     pAeBaseInfo->aVSGain               = pAR0820Ctx->aVSGain;
     pAeBaseInfo->dVSGain               = pAR0820Ctx->dVSGain;
-    
-    pAeBaseInfo->nativeHdrRatio[0] = 16.0;
-    pAeBaseInfo->nativeHdrRatio[1] = 16.0;
-    pAeBaseInfo->nativeHdrRatio[2] = 16.0;
-    
+
+    pAeBaseInfo->nativeHdrRatio[0] = pAR0820Ctx->nativeHdrRatio[0];
+    pAeBaseInfo->nativeHdrRatio[1] = pAR0820Ctx->nativeHdrRatio[1];
+    pAeBaseInfo->nativeHdrRatio[2] = pAR0820Ctx->nativeHdrRatio[2];
+
     //Linear and hdr mode common parameters
     pAeBaseInfo->aecGainStep    = pAR0820Ctx->aecGainIncrement;
     pAeBaseInfo->aecIntTimeStep = pAR0820Ctx->aecIntegrationTimeIncrement;
@@ -888,7 +907,7 @@ RESULT AR0820_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
 {
     RESULT result = RET_SUCCESS;
     TRACE(AR0820_INFO, "%s: (enter)\n", __func__);
-    float NewGain = 0;
+    float32_t NewGain = 0;
 
     AR0820_Context_t *pAR0820Ctx = (AR0820_Context_t *) handle;
     if (pAR0820Ctx == NULL || pAR0820Ctx->isiCtx.halI2cHandle == NULL) {
@@ -902,7 +921,7 @@ RESULT AR0820_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
     uint8_t  fgain_div = 16;
     uint16_t cgain_pow = 0;
     uint16_t fgain = 0;
-    float SensorGain = 0;
+    float32_t SensorGain = 0;
 
     /*step1. set analog coarse gain*/
     if (NewGain < 2) {
@@ -936,8 +955,8 @@ RESULT AR0820_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorA
     fgain = fgain | (fgain << 4) | (fgain << 8) | (fgain << 12);
     result |= AR0820_IsiWriteRegIss(handle, 0x336a, fgain);
 
-    pAR0820Ctx->aecCurGain = (float)((1 << (cgain_pow & 0x7)) * (1 + (float)(fgain & 0xf)/16));
-    pAR0820Ctx->aecCurLongGain = (float)((1 << (cgain_pow & 0x7)) * (1 + (float)(fgain & 0xf)/16));
+    pAR0820Ctx->aecCurGain = (float32_t)((1 << (cgain_pow & 0x7)) * (1 + (float32_t)(fgain & 0xf)/16));
+    pAR0820Ctx->aecCurLongGain = (float32_t)((1 << (cgain_pow & 0x7)) * (1 + (float32_t)(fgain & 0xf)/16));
     
     TRACE(AR0820_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -1017,7 +1036,7 @@ RESULT AR0820_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_
     } else if (pAR0820Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_NATIVE || pAR0820Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
         exp_line = pSensorIntTime->intTime[ISI_LINEAR_PARAS] / pAR0820Ctx->oneLineExpTime;
         exp_line = MIN(pAR0820Ctx->maxIntegrationLine, MAX(pAR0820Ctx->minIntegrationLine, exp_line));  
-        // float  hdr_ratio = 16;
+        // float32_t  hdr_ratio = 16;
         // exp_ratio = (uint32_t) (((int)((hdr_ratio)*10) % 10) >= 5 ? (hdr_ratio+1) : (hdr_ratio));
 
         uint32_t middle_exp = 0;
@@ -1042,9 +1061,21 @@ RESULT AR0820_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_
         //         }
         //     }
         // }
-        ratio_input = 4; //actual native hdr ratio = 2^4=16
-        ratio_input = ratio_input & 0x7;
-        ratio_input = ratio_input|(ratio_input<<4)|(ratio_input<<8);
+
+		//fixed sensor ratio setting according to intial value
+		 TRACE(AR0820_ERROR,"%s: coarse_exp_t1 %d \n", __func__,coarse_exp_t1);
+		if (coarse_exp_t1 / 16 <= 1) {
+			pAR0820Ctx->nativeHdrRatio[1] = 1.0;
+			pAR0820Ctx->nativeHdrRatio[2] = 1.0;
+		} else if (coarse_exp_t1 /16/8 <= 1) {
+			pAR0820Ctx->nativeHdrRatio[2] = 1.0;
+		} else {
+			pAR0820Ctx->nativeHdrRatio[1] = 8.0;
+			pAR0820Ctx->nativeHdrRatio[2] = 4.0;
+		}
+
+		//4 means 2^4 =16;
+        ratio_input = 0x4|(0x3 <<4)|(0x2 <<8);
 
         result = AR0820_IsiWriteRegIss(handle, 0x3012, coarse_exp_t1);//exp_line
         result |= AR0820_IsiWriteRegIss(handle, 0x3238, ratio_input);
@@ -1216,7 +1247,10 @@ static RESULT AR0820_IsiSetWBIss(IsiSensorHandle_t handle, const IsiSensorWb_t *
         result |= AR0820_IsiWriteRegIss(handle, 0x3306, 0x200);
     }
 
-    memcpy(&pAR0820Ctx->sensorWb, pWb, sizeof(IsiSensorWb_t));
+    pAR0820Ctx->sensorWb.bGain  = bGain / 128.0;
+    pAR0820Ctx->sensorWb.gbGain = gbGain / 128.0;
+    pAR0820Ctx->sensorWb.grGain = grGain / 128.0;
+    pAR0820Ctx->sensorWb.rGain  = rGain / 128.0;
 
     TRACE(AR0820_INFO, "%s: (exit)\n", __func__);
     return (result);

@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -213,6 +227,27 @@ static IsiSensorMode_t pos08a20_mode_info[] = {
         .bayerPattern = ISI_BPAT_BGGR,
         .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
     },
+    {
+        .index     = 9,  //vi200 1080p hdr
+        .size      = {
+            .boundsWidth  = 1920,
+            .boundsHeight = 1080,
+            .top           = 0,
+            .left          = 0,
+            .width         = 1920,
+            .height        = 1080,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 1,
+            .gainDelayFrame = 1,
+        },
+        .fps       = 12 * ISI_FPS_QUANTIZE,
+        .hdrMode  = ISI_SENSOR_MODE_HDR_STITCH,
+        .stitchingMode = ISI_SENSOR_STITCHING_L_AND_S,
+        .bitWidth = 10,
+        .bayerPattern = ISI_BPAT_BGGR,
+        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+    },
 };
 
 static RESULT OS08a20_IsiReadRegIss(IsiSensorHandle_t handle, const uint16_t addr, uint16_t *pValue)
@@ -330,7 +365,7 @@ static RESULT OS08a20_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
     RESULT result = RET_SUCCESS;
     TRACE(OS08a20_INFO, "%s (enter)\n", __func__);
 
-    OS08a20_Context_t *pOS08a20Ctx = (OS08a20_Context_t *) malloc(sizeof(OS08a20_Context_t));
+    OS08a20_Context_t *pOS08a20Ctx = (OS08a20_Context_t *) osMalloc(sizeof(OS08a20_Context_t));
     if (!pOS08a20Ctx) {
         TRACE(OS08a20_ERROR, "%s: Can't allocate os08a20 context\n",__func__);
         return (RET_OUTOFMEM);
@@ -361,7 +396,7 @@ static RESULT OS08a20_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
 
     result = HalAddRef(pOS08a20Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pOS08a20Ctx);
+        osFree(pOS08a20Ctx);
         return (result);
     }
 
@@ -375,7 +410,7 @@ static RESULT OS08a20_AecSetModeParameters(IsiSensorHandle_t handle, OS08a20_Con
 {
     RESULT result = RET_SUCCESS;
     uint16_t value = 0, regVal = 0;
-    float again = 0, dgain = 0;
+    float32_t again = 0, dgain = 0, vsAgain, vsDgain;
     TRACE(OS08a20_INFO, "%s%s: (enter)\n", __func__, pOS08a20Ctx->isAfpsRun ? "(AFPS)" : "");
 
     pOS08a20Ctx->aecIntegrationTimeIncrement = pOS08a20Ctx->oneLineExpTime;
@@ -398,13 +433,29 @@ static RESULT OS08a20_AecSetModeParameters(IsiSensorHandle_t handle, OS08a20_Con
     OS08a20_IsiReadRegIss(handle, 0x3509, &value);
     regVal = regVal | (value & 0xFF);
     again = regVal/128.0f;
-    
+    pOS08a20Ctx->curAgain = again;
+
+    OS08a20_IsiReadRegIss(handle, 0x350c, &value);
+    regVal = (value & 0x3f) << 8;
+    OS08a20_IsiReadRegIss(handle, 0x350d, &value);
+    regVal = regVal | (value & 0xFF);
+    vsAgain = regVal/128.0f;
+    pOS08a20Ctx->curVSAgain = vsAgain;
+
     OS08a20_IsiReadRegIss(handle, 0x350a, &value);
     regVal = (value & 0x3f) << 8;
     OS08a20_IsiReadRegIss(handle, 0x350b, &value);
     regVal = regVal | (value & 0xFF);
     dgain = regVal/1024.0f;
     pOS08a20Ctx->aecCurGain            = again * dgain;
+    pOS08a20Ctx->curDgain = dgain;
+
+    OS08a20_IsiReadRegIss(handle, 0x350e, &value);
+    regVal = (value & 0x3f) << 8;
+    OS08a20_IsiReadRegIss(handle, 0x350f, &value);
+    regVal = regVal | (value & 0xFF);
+    vsDgain = regVal/1024.0f;
+    pOS08a20Ctx->curVSDgain = vsDgain;
 
     OS08a20_IsiReadRegIss(handle, 0x3501, &value);
     regVal = value << 8;
@@ -412,8 +463,13 @@ static RESULT OS08a20_AecSetModeParameters(IsiSensorHandle_t handle, OS08a20_Con
     regVal = regVal | (value & 0xFF);
     pOS08a20Ctx->aecCurIntegrationTime = regVal * pOS08a20Ctx->oneLineExpTime;
 
-    TRACE(OS08a20_INFO, "%s%s: (exit)\n", __func__,pOS08a20Ctx->isAfpsRun ? "(AFPS)" : "");
+    OS08a20_IsiReadRegIss(handle, 0x3511, &value);
+    regVal = value << 8;
+    OS08a20_IsiReadRegIss(handle, 0x3512, &value);
+    regVal = regVal | (value & 0xFF);
+    pOS08a20Ctx->aecCurVSIntegrationTime = regVal * pOS08a20Ctx->oneLineExpTime;
 
+    TRACE(OS08a20_INFO, "%s%s: (exit)\n", __func__,pOS08a20Ctx->isAfpsRun ? "(AFPS)" : "");
     return (result);
 }
 
@@ -487,6 +543,11 @@ static RESULT OS08a20_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             case 8:
                 for (int i = 0; i<sizeof(OS08a20_mipi4lane_4K_VI200_init) / sizeof(OS08a20_mipi4lane_4K_VI200_init[0]); i++) {
                     OS08a20_IsiWriteRegIss(handle, OS08a20_mipi4lane_4K_VI200_init[i][0], OS08a20_mipi4lane_4K_VI200_init[i][1]);
+                }
+                break;
+            case 9:
+                for (int i = 0; i<sizeof(OS08a20_1080p_VI200_hdr_init) / sizeof(OS08a20_1080p_VI200_hdr_init[0]); i++) {
+                    OS08a20_IsiWriteRegIss(handle, OS08a20_1080p_VI200_hdr_init[i][0], OS08a20_1080p_VI200_hdr_init[i][1]);
                 }
                 break;
             default:
@@ -664,7 +725,34 @@ static RESULT OS08a20_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pOS08a20Ctx->dGain.max           = 15;
             pOS08a20Ctx->dGain.step          = (1.0f/1024.0f);
             break;
-
+        case 9:
+            pOS08a20Ctx->oneLineExpTime      = 0.000036 ; 
+            pOS08a20Ctx->frameLengthLines    = 0x486;
+            pOS08a20Ctx->curFrameLengthLines = pOS08a20Ctx->frameLengthLines;
+            pOS08a20Ctx->maxIntegrationLine  = pOS08a20Ctx->curFrameLengthLines - 8;
+            pOS08a20Ctx->minIntegrationLine  = 8;
+            pOS08a20Ctx->aecMaxGain          = 230;
+            pOS08a20Ctx->aecMinGain          = 1.0;
+            #ifdef ISP_MI_HDR
+            pOS08a20Ctx->maxVSIntegrationLine  = 550/2;
+            pOS08a20Ctx->minVSIntegrationLine  = 4;
+            #else
+            pOS08a20Ctx->maxVSIntegrationLine  = 51;
+            pOS08a20Ctx->minVSIntegrationLine  = 8;
+            #endif
+            pOS08a20Ctx->aGain.min           = 1.0;
+            pOS08a20Ctx->aGain.max           = 15.5;
+            pOS08a20Ctx->aGain.step          = (1.0f/128.0f);
+            pOS08a20Ctx->dGain.min           = 1.0;
+            pOS08a20Ctx->dGain.max           = 15;
+            pOS08a20Ctx->dGain.step          = (1.0f/1024.0f);
+            pOS08a20Ctx->aVSGain.min         = 1.0;
+            pOS08a20Ctx->aVSGain.max         = 15.5;
+            pOS08a20Ctx->aVSGain.step        = (1.0f/128.0f);
+            pOS08a20Ctx->dVSGain.min         = 1.0;
+            pOS08a20Ctx->dVSGain.max         = 15;
+            pOS08a20Ctx->dVSGain.step        = (1.0f/1024.0f);
+            break;
         default:
             TRACE(OS08a20_INFO, "%s:not support sensor mode %d\n", __func__,pOS08a20Ctx->sensorMode.index);
             return RET_NOTSUPP;
@@ -712,11 +800,12 @@ static RESULT OS08a20_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOS08a20Ctx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOS08a20Ctx->isiCtx.halI2cHandle);
+
     (void)HalDelRef(pOS08a20Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOS08a20Ctx->isiCtx.halI2cHandle);
 
     MEMSET(pOS08a20Ctx, 0, sizeof(OS08a20_Context_t));
-    free(pOS08a20Ctx);
+    osFree(pOS08a20Ctx);
     TRACE(OS08a20_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -865,6 +954,31 @@ static RESULT OS08a20_IsiGetAeBaseInfoIss(IsiSensorHandle_t handle, IsiAeBaseInf
 
     TRACE(OS08a20_INFO, "%s: (enter)\n", __func__);
     return (result);
+}
+
+RESULT OS08a20_IsiExpDecomposeControl
+(
+	IsiSensorHandle_t handle,
+	const IsiExpDecomposeParam_t *pDecParam,
+	IsiExpDecomposeResult_t *pDecResult
+)
+{
+	RESULT result = RET_SUCCESS;
+	TRACE(OS08a20_INFO, "%s: (enter)\n", __func__);
+	OS08a20_Context_t *pOS08a20Ctx = (OS08a20_Context_t *) handle;
+	
+    if (pOS08a20Ctx == NULL || pOS08a20Ctx->isiCtx.halI2cHandle == NULL) {
+        return RET_WRONG_HANDLE;
+    }
+	if (pDecResult == NULL || pDecParam == NULL) {
+		return RET_NULL_POINTER;
+	}
+	TRACE(OS08a20_INFO, "%s: input integration time: %02f, gain: %02f, ratio[0]: %f\n", __func__,
+	pDecParam->integrationTime, pDecParam->gain, pDecParam->ispRatio[0]);
+
+	
+	TRACE(OS08a20_INFO, "%s: (exit)\n", __func__);
+	return result;
 }
 
 RESULT OS08a20_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorAGain)
@@ -1046,7 +1160,7 @@ RESULT OS08a20_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime
     return (result);
 }
 
-static RESULT OS08a20_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT OS08a20_SetIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(OS08a20_INFO, "%s: (enter)\n", __func__);
@@ -1058,7 +1172,7 @@ static RESULT OS08a20_SetIntTime(IsiSensorHandle_t handle, float newIntegrationT
         return (RET_WRONG_HANDLE);
     }
 
-    expLine = newIntegrationTime / pOS08a20Ctx->oneLineExpTime;
+    expLine = (uint32_t)(newIntegrationTime / pOS08a20Ctx->oneLineExpTime + 0.5);
     expLine = MIN(pOS08a20Ctx->maxIntegrationLine, MAX(pOS08a20Ctx->minIntegrationLine, expLine));
     TRACE(OS08a20_DEBUG, "%s: set expLine = 0x%04x\n", __func__, expLine);
 
@@ -1072,7 +1186,7 @@ static RESULT OS08a20_SetIntTime(IsiSensorHandle_t handle, float newIntegrationT
     return (result);
 }
 
-static RESULT OS08a20_SetVSIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
+static RESULT OS08a20_SetVSIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime)
 {
     RESULT result = RET_SUCCESS;
     TRACE(OS08a20_INFO, "%s: (enter)\n", __func__);
@@ -1084,7 +1198,7 @@ static RESULT OS08a20_SetVSIntTime(IsiSensorHandle_t handle, float newIntegratio
         return (RET_WRONG_HANDLE);
     }
 
-    expLine = newIntegrationTime / pOS08a20Ctx->oneLineExpTime;
+    expLine = (uint32_t)(newIntegrationTime / pOS08a20Ctx->oneLineExpTime + 0.5);
 #ifdef ISP_MI_HDR
     expLine = MIN(550/2, MAX(8, expLine)); // 40ms
 #else
@@ -1269,6 +1383,7 @@ RESULT OS08a20_IsiGetSensorIss(IsiSensor_t *pIsiSensor)
 
         /* AEC */
         pIsiSensor->pIsiGetAeBaseInfoIss                = OS08a20_IsiGetAeBaseInfoIss;
+		pIsiSensor->pIsiExpDecomposeCtrlIss             = OS08a20_IsiExpDecomposeControl;
         pIsiSensor->pIsiGetAGainIss                     = OS08a20_IsiGetAGainIss;
         pIsiSensor->pIsiSetAGainIss                     = OS08a20_IsiSetAGainIss;
         pIsiSensor->pIsiGetDGainIss                     = OS08a20_IsiGetDGainIss;

@@ -25,6 +25,7 @@
 #include <hal/hal_api.h>
 #include <isi/isi_common.h>
 #include <isi/isi_vvsensor.h>
+#include "isi_priv.h"
 
 #ifndef DOLPHIN
 #define IMX415_MIN_GAIN_STEP    ( 1.0f/16.0f )  /**< min gain step size used by GUI (hardware min = 1/16; 1/16..32/16 depending on actual gain ) */

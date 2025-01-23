@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/types.h>
 #include <ebase/trace.h>
@@ -29,16 +43,6 @@ CREATE_TRACER(IMX334_ERROR, "IMX334: ", ERROR,   1);
 CREATE_TRACER(IMX334_DEBUG,     "IMX334: ", INFO, 1);
 CREATE_TRACER(IMX334_REG_INFO , "IMX334: ", INFO, 1);
 CREATE_TRACER(IMX334_REG_DEBUG, "IMX334: ", INFO, 1);
-
-#ifdef SUBDEV_V4L2
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <linux/videodev2.h>
-#include <linux/v4l2-subdev.h>
-#undef TRACE
-#define TRACE(x, ...)
-#endif
 
 #define IMX334_MIN_GAIN_STEP    (1.0f/128.0f)  /**< min gain step size used by GUI (hardware min = 1/16; 1/16..32/16 depending on actual gain) */
 #define IMX334_PLL_PCLK         74250000
@@ -214,7 +218,7 @@ static RESULT IMX334_IsiCreateIss(IsiSensorInstanceConfig_t * pConfig) {
     if (!pConfig || !pConfig->pSensor)
         return (RET_NULL_POINTER);
 
-    pIMX334Ctx = (IMX334_Context_t *) malloc(sizeof(IMX334_Context_t));
+    pIMX334Ctx = (IMX334_Context_t *) osMalloc(sizeof(IMX334_Context_t));
     if (!pIMX334Ctx) {
         TRACE(IMX334_ERROR, "%s: Can't allocate IMX334 context\n", __func__);
         return (RET_OUTOFMEM);
@@ -224,7 +228,7 @@ static RESULT IMX334_IsiCreateIss(IsiSensorInstanceConfig_t * pConfig) {
 
     result = HalAddRef(pConfig->halHandle);
     if (result != RET_SUCCESS) {
-        free(pIMX334Ctx);
+        osFree(pIMX334Ctx);
         return (result);
     }
 
@@ -290,13 +294,6 @@ static RESULT IMX334_IsiCreateIss(IsiSensorInstanceConfig_t * pConfig) {
     pIMX334Ctx->pattern = ISI_BPAT_GBRG;
 #endif
 
-#ifdef SUBDEV_V4L2
-    pIMX334Ctx->pattern = ISI_BPAT_BGGR;
-    pIMX334Ctx->subdev = HalGetFdHandle(pConfig->halHandle, HAL_MODULE_SENSOR);//two sensors??
-    //HalContext_t *pHalCtx = (HalContext_t *) pIMX334Ctx->IsiCtx.HalHandle;
-    //pHalCtx->sensor_fd = pIMX334Ctx->subdev;
-    pIMX334Ctx->KernelDriverFlag = 1;
-#endif
     TRACE(IMX334_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -314,7 +311,7 @@ static RESULT IMX334_IsiReleaseIss(IsiSensorHandle_t handle) {
     (void)HalDelRef(pIMX334Ctx->IsiCtx.HalHandle);
 
     MEMSET(pIMX334Ctx, 0, sizeof(IMX334_Context_t));
-    free(pIMX334Ctx);
+    osFree(pIMX334Ctx);
     TRACE(IMX334_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -488,7 +485,7 @@ static RESULT IMX334_IsiGetRegCfgIss(const char *registerFileName, struct vvsens
     }
 
     array->sccb_data =
-        malloc(FileTotalLine * sizeof(struct vvsensor_sccb_data_s));
+        osMalloc(FileTotalLine * sizeof(struct vvsensor_sccb_data_s));
     if (array->sccb_data == NULL) {
         TRACE(IMX334_ERROR, "%s:malloc failed NULL Point!\n", __func__, registerFileName);
         return (RET_FAILURE);
@@ -576,37 +573,14 @@ static RESULT IMX334_IsiSetupIss(IsiSensorHandle_t handle)
                   __func__);
             return (RET_FAILURE);
         }
-        pIMX334Ctx->one_line_exp_time  = (double)ae_info.one_line_exp_time_ns / 1000000000;
+        pIMX334Ctx->one_line_exp_time  = (float64_t)ae_info.one_line_exp_time_ns / 1000000000;
         pIMX334Ctx->MaxIntegrationLine = ae_info.max_integration_time;
         pIMX334Ctx->MinIntegrationLine = ae_info.min_integration_time;
         pIMX334Ctx->gain_accuracy = ae_info.gain_accuracy;
-        pIMX334Ctx->AecMinGain =  (float)(ae_info.min_gain) / ae_info.gain_accuracy;
-        pIMX334Ctx->AecMaxGain = (float)(ae_info.max_gain) / ae_info.gain_accuracy;
+        pIMX334Ctx->AecMinGain =  (float32_t)(ae_info.min_gain) / ae_info.gain_accuracy;
+        pIMX334Ctx->AecMaxGain = (float32_t)(ae_info.max_gain) / ae_info.gain_accuracy;
 
         pIMX334Ctx->CurrFps = pIMX334Ctx->MaxFps;*/
-#endif
-
-#ifdef SUBDEV_V4L2
-        ret = ioctl(pHalCtx->sensor_fd, VVSENSORIOC_G_SENSOR_MODE, &(pIMX334Ctx->SensorMode));
-        if (ret != 0) {
-            TRACE(IMX334_ERROR, "%s:sensor get mode info error!\n", __func__);
-            return (RET_FAILURE);
-        }
-        if (pIMX334Ctx->SensorMode.hdr_mode != SENSOR_MODE_LINEAR) {
-            pIMX334Ctx->enableHdr = true;
-        } else {
-            pIMX334Ctx->enableHdr = false;
-        }
-
-        pIMX334Ctx->one_line_exp_time  = (float) (pIMX334Ctx->SensorMode.ae_info.one_line_exp_time_ns) / 1000000000;
-        pIMX334Ctx->MaxIntegrationLine = pIMX334Ctx->SensorMode.ae_info.max_integration_time;
-        pIMX334Ctx->MinIntegrationLine = pIMX334Ctx->SensorMode.ae_info.min_integration_time;
-        pIMX334Ctx->gain_accuracy      = pIMX334Ctx->SensorMode.ae_info.gain_accuracy;
-        pIMX334Ctx->AecMaxGain         = (float)(pIMX334Ctx->SensorMode.ae_info.max_gain) /pIMX334Ctx->gain_accuracy ;
-        pIMX334Ctx->AecMinGain         = (float)(pIMX334Ctx->SensorMode.ae_info.min_gain) / pIMX334Ctx->gain_accuracy ;
-        pIMX334Ctx->MaxFps             = pIMX334Ctx->SensorMode.fps;
-        pIMX334Ctx->CurrFps            = pIMX334Ctx->MaxFps;
-
 #endif
 
     } else {
@@ -788,7 +762,7 @@ static RESULT IMX334_IsiSetStreamingIss(IsiSensorHandle_t handle, bool_t on)
     return (result);
 }
 
-static RESULT IMX334_IsiGetGainLimitsIss(IsiSensorHandle_t handle, float *pMinGain, float *pMaxGain) 
+static RESULT IMX334_IsiGetGainLimitsIss(IsiSensorHandle_t handle, float32_t *pMinGain, float32_t *pMaxGain) 
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -812,7 +786,7 @@ static RESULT IMX334_IsiGetGainLimitsIss(IsiSensorHandle_t handle, float *pMinGa
     return (result);
 }
 
-static RESULT IMX334_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, float *pMinIntegrationTime, float *pMaxIntegrationTime) 
+static RESULT IMX334_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, float32_t *pMinIntegrationTime, float32_t *pMaxIntegrationTime) 
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -835,7 +809,7 @@ static RESULT IMX334_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, fl
     return (result);
 }
 
-RESULT IMX334_IsiGetGainIss(IsiSensorHandle_t handle, float *pSetGain) 
+RESULT IMX334_IsiGetGainIss(IsiSensorHandle_t handle, float32_t *pSetGain) 
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -855,7 +829,7 @@ RESULT IMX334_IsiGetGainIss(IsiSensorHandle_t handle, float *pSetGain)
     return (result);
 }
 
-RESULT IMX334_IsiGetSEF1GainIss(IsiSensorHandle_t handle, float *pSetGain) 
+RESULT IMX334_IsiGetSEF1GainIss(IsiSensorHandle_t handle, float32_t *pSetGain) 
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -878,7 +852,7 @@ RESULT IMX334_IsiGetSEF1GainIss(IsiSensorHandle_t handle, float *pSetGain)
     return (result);
 }
 
-RESULT IMX334_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float *pIncr) 
+RESULT IMX334_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float32_t *pIncr) 
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -899,7 +873,7 @@ RESULT IMX334_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float *pIncr)
     return (result);
 }
 
-RESULT IMX334_IsiSetGainIss(IsiSensorHandle_t handle, float NewGain, float *pSetGain, float *hdr_ratio) 
+RESULT IMX334_IsiSetGainIss(IsiSensorHandle_t handle, float32_t NewGain, float32_t *pSetGain, float32_t *hdr_ratio) 
 {
 
     RESULT result = RET_SUCCESS;
@@ -937,13 +911,13 @@ RESULT IMX334_IsiSetGainIss(IsiSensorHandle_t handle, float NewGain, float *pSet
     }
 
 
-    pIMX334Ctx->AecCurGain = ((float)(NewGain));
+    pIMX334Ctx->AecCurGain = ((float32_t)(NewGain));
 
     *pSetGain = pIMX334Ctx->AecCurGain;
     TRACE(IMX334_DEBUG, "%s: g=%f\n", __func__, *pSetGain);
     return (result);
 }
-RESULT IMX334_IsiSetSEF1GainIss(IsiSensorHandle_t handle, float NewIntegrationTime,float NewGain, float *pSetGain, const float *hdr_ratio) 
+RESULT IMX334_IsiSetSEF1GainIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime,float32_t NewGain, float32_t *pSetGain, const float32_t *hdr_ratio) 
 {
 
     IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
@@ -980,7 +954,7 @@ RESULT IMX334_IsiSetSEF1GainIss(IsiSensorHandle_t handle, float NewIntegrationTi
     return (result);
 }
 
-RESULT IMX334_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIntegrationTime)
+RESULT IMX334_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pSetIntegrationTime)
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -998,7 +972,7 @@ RESULT IMX334_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetInte
     return (result);
 }
 
-RESULT IMX334_IsiGetSEF1IntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIntegrationTime)
+RESULT IMX334_IsiGetSEF1IntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pSetIntegrationTime)
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -1016,7 +990,7 @@ RESULT IMX334_IsiGetSEF1IntegrationTimeIss(IsiSensorHandle_t handle, float *pSet
     return (result);
 }
 
-RESULT IMX334_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float *pIncr)
+RESULT IMX334_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float32_t *pIncr)
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -1036,7 +1010,7 @@ RESULT IMX334_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float 
     return (result);
 }
 
-RESULT IMX334_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegrationTime, float *pSetIntegrationTime, uint8_t * pNumberOfFramesToSkip, float *hdr_ratio)
+RESULT IMX334_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime, float32_t *pSetIntegrationTime, uint8_t * pNumberOfFramesToSkip, float32_t *hdr_ratio)
 {
     RESULT result = RET_SUCCESS;
 
@@ -1089,8 +1063,8 @@ RESULT IMX334_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegr
     return (result);
 }
 
-RESULT IMX334_IsiSetSEF1IntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegrationTime,
-                                float *pSetIntegrationTimeSEF1, uint8_t * pNumberOfFramesToSkip, float *hdr_ratio)
+RESULT IMX334_IsiSetSEF1IntegrationTimeIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime,
+                                float32_t *pSetIntegrationTimeSEF1, uint8_t * pNumberOfFramesToSkip, float32_t *hdr_ratio)
 {
     IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     if (!pIMX334Ctx) {
@@ -1141,8 +1115,8 @@ RESULT IMX334_IsiSetSEF1IntegrationTimeIss(IsiSensorHandle_t handle, float NewIn
     return (result);
 }
 
-RESULT IMX334_IsiExposureControlIss(IsiSensorHandle_t handle, float NewGain, float NewIntegrationTime,
-                     uint8_t * pNumberOfFramesToSkip,float *pSetGain, float *pSetIntegrationTime, float *hdr_ratio)
+RESULT IMX334_IsiExposureControlIss(IsiSensorHandle_t handle, float32_t NewGain, float32_t NewIntegrationTime,
+                     uint8_t * pNumberOfFramesToSkip,float32_t *pSetGain, float32_t *pSetIntegrationTime, float32_t *hdr_ratio)
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
 
@@ -1172,7 +1146,7 @@ RESULT IMX334_IsiExposureControlIss(IsiSensorHandle_t handle, float NewGain, flo
     return result;
 }
 
-RESULT IMX334_IsiGetCurrentExposureIss(IsiSensorHandle_t handle, float *pSetGain, float *pSetIntegrationTime) 
+RESULT IMX334_IsiGetCurrentExposureIss(IsiSensorHandle_t handle, float32_t *pSetGain, float32_t *pSetIntegrationTime) 
 {
     const IMX334_Context_t *pIMX334Ctx = (IMX334_Context_t *) handle;
     RESULT result = RET_SUCCESS;

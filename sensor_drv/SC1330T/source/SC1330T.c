@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -188,7 +202,7 @@ static RESULT SC1330T_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
     RESULT result = RET_SUCCESS;
     TRACE(SC1330T_INFO, "%s (enter)\n", __func__);
 
-    SC1330T_Context_t *pSC1330TCtx = (SC1330T_Context_t *) malloc(sizeof(SC1330T_Context_t));
+    SC1330T_Context_t *pSC1330TCtx = (SC1330T_Context_t *) osMalloc(sizeof(SC1330T_Context_t));
     if (!pSC1330TCtx) {
         TRACE(SC1330T_ERROR, "%s: Can't allocate sc1330t context\n",__func__);
         return (RET_OUTOFMEM);
@@ -219,7 +233,7 @@ static RESULT SC1330T_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
 
     result = HalAddRef(pSC1330TCtx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pSC1330TCtx);
+        osFree(pSC1330TCtx);
         return (result);
     }
 
@@ -233,7 +247,7 @@ static RESULT SC1330T_AecSetModeParameters(IsiSensorHandle_t handle, SC1330T_Con
 {
     RESULT result = RET_SUCCESS;
     uint16_t value = 0, regVal = 0;
-    float again = 0, dgain = 0;
+    float32_t again = 0, dgain = 0;
     TRACE(SC1330T_INFO, "%s%s: (enter)\n", __func__, pSC1330TCtx->isAfpsRun ? "(AFPS)" : "");
 
     pSC1330TCtx->aecIntegrationTimeIncrement = pSC1330TCtx->oneLineExpTime;
@@ -406,7 +420,7 @@ static RESULT SC1330T_IsiReleaseIss(IsiSensorHandle_t handle)
     (void)HalDelRef(pSC1330TCtx->isiCtx.halI2cHandle, HAL_DEV_I2C);
 
     MEMSET(pSC1330TCtx, 0, sizeof(SC1330T_Context_t));
-    free(pSC1330TCtx);
+    osFree(pSC1330TCtx);
     TRACE(SC1330T_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -543,9 +557,9 @@ RESULT SC1330T_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
 {
     RESULT result = RET_SUCCESS;
     TRACE(SC1330T_INFO, "%s: (enter)\n", __func__);
-    float again = 0, anaGain = 0;
+    float32_t again = 0, anaGain = 0;
     uint32_t value = 0, coarseAgain = 0, fineAgain = 0;
-    float dcgGain = 5.438;
+    float32_t dcgGain = 5.438;
 
     SC1330T_Context_t *pSC1330TCtx = (SC1330T_Context_t *) handle;
     if (pSC1330TCtx == NULL || pSC1330TCtx->isiCtx.halI2cHandle == NULL) {
@@ -609,7 +623,7 @@ RESULT SC1330T_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
 {
     RESULT result = RET_SUCCESS;
     TRACE(SC1330T_INFO, "%s: (enter)\n", __func__);
-    float dgain = 0;
+    float32_t dgain = 0;
     uint32_t coarseDgain = 0, fineDgain = 0;
 
     SC1330T_Context_t *pSC1330TCtx = (SC1330T_Context_t *) handle;

@@ -1,28 +1,14 @@
-/****************************************************************************
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2022 Vivante Corporation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
- ****************************************************************************/
+/******************************************************************************\
+|* Copyright (c) <2024> by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")     *|
+|* All Rights Reserved.                                                       *|
+|*                                                                            *|
+|* The material in this file is confidential and contains trade secrets       *|
+|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
+|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
+|* transmitted, or used in any way for any purpose, without the express       *|
+|* written permission of VeriSilicon.                                         *|
+|*                                                                            *|
+\******************************************************************************/
 
 /* VeriSilicon 2020 */
 
@@ -41,6 +27,8 @@
 extern "C" {
 #endif
 
+
+#define MIPI_OUTPUT_ITF_MAX 8
 
 /******************************************************************************/
 /**
@@ -177,12 +165,53 @@ typedef enum MipiPredictorBlock_e
     MIPI_PREDICTOR_BLOCK_MAX
 } MipiPredictorBlock_t;
 
+/******************************************************************************/
+/**
+ * @brief MIPI output interface bit mode.
+ *
+ ******************************************************************************/
+typedef enum MipiOutItfBitMode_e
+{
+    MIPI_OUT_ITF_16Bit_MODE          = 0,     //!< IPI mode 16bit
+    MIPI_OUT_ITF_48Bit_MODE          = 1,     //!< IPI mode 48bit
+    MIPI_OUT_ITF_MODE_MAX
+} MipiOutItfBitMode_t;
+
+typedef struct MipiOutItfHorizonTime_s{
+    uint32_t hsa;   /* horizontal synchronism activate (pixel cycle) */
+    uint32_t hbp;   /* horizontal back porch (pixel cycle) */
+    uint32_t hfp;   /* horizontal front porch (pixel cycle) */
+    uint32_t hline;   /* overall time for each line (pixel cycle) */
+} MipiOutItfHorizonTime_t;
+
+typedef struct MipiOutItfVerticalTime_s{
+    uint32_t vsa;   /* vertical synchronism activate (hline) */
+    uint32_t vbp;   /* vertical back porch (hline) */
+    uint32_t vfp;   /* vertical front porch (hline) */
+    uint32_t vactivateLines;   /* vertical resolution of video */
+} MipiOutItfVerticalTime_t;
+
 typedef struct MipiImageRect_s{
     uint32_t left;
     uint32_t top;
     uint32_t width;
     uint32_t height;
 } MipiImageRect_t;
+
+/******************************************************************************/
+/**
+ * @brief mipi output interface configuration structure.
+ *
+ ******************************************************************************/
+typedef struct MipiOutItfConfig_s{
+
+    bool enable;
+    bool embeddedEn;
+    MipiVirtualChannel_t     vcid;
+    MipiOutItfBitMode_t      bitMode;
+    MipiOutItfHorizonTime_t  hTime;
+    MipiOutItfVerticalTime_t vTime;
+} MipiOutItfConfig_t;
 
 
 #if defined (__cplusplus)

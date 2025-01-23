@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -45,10 +59,70 @@ static IsiSensorMode_t pov50a40_mode_info[] = {
             .intTimeDelayFrame = 1,
             .gainDelayFrame = 1,
         },
-        .fps       = 7 * ISI_FPS_QUANTIZE,
+        .fps       = 7.8 * ISI_FPS_QUANTIZE,
         .hdrMode  = ISI_SENSOR_MODE_LINEAR,
         .bitWidth = 10,
         .bayerPattern = ISI_BPAT_BGGR,
+        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+    },
+    {
+        .index     = 1,
+        .size      = {
+            .boundsWidth  = 3840,
+            .boundsHeight = 2160,
+            .top           = 0,
+            .left          = 0,
+            .width         = 3840,
+            .height        = 2160,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 1,
+            .gainDelayFrame = 1,
+        },
+        .fps       = 4.25 * ISI_FPS_QUANTIZE,
+        .hdrMode  = ISI_SENSOR_MODE_LINEAR,
+        .bitWidth = 10,
+        .bayerPattern = ISI_BPAT_RGGB,
+        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+    },
+    {
+        .index     = 2,
+        .size      = {
+            .boundsWidth  = 7680,
+            .boundsHeight = 4320,
+            .top           = 0,
+            .left          = 0,
+            .width         = 7680,
+            .height        = 4320,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 1,
+            .gainDelayFrame = 1,
+        },
+        .fps       = 1.8 * ISI_FPS_QUANTIZE,
+        .hdrMode  = ISI_SENSOR_MODE_LINEAR,
+        .bitWidth = 10,
+        .bayerPattern = ISI_BPAT_RGGB,
+        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+    },
+    {
+        .index     = 3, // 8k 2lane
+        .size      = {
+            .boundsWidth  = 7680,
+            .boundsHeight = 4320,
+            .top           = 0,
+            .left          = 0,
+            .width         = 7680,
+            .height        = 4320,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 1,
+            .gainDelayFrame = 1,
+        },
+        .fps       = 2.5 * ISI_FPS_QUANTIZE,
+        .hdrMode  = ISI_SENSOR_MODE_LINEAR,
+        .bitWidth = 10,
+        .bayerPattern = ISI_BPAT_RGGB,
         .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
     }
 };
@@ -150,6 +224,9 @@ static RESULT OV50a40_IsiGetCapsIss(IsiSensorHandle_t handle, IsiCaps_t *pCaps)
     pCaps->resolution.height = pOV50a40Ctx->sensorMode.size.height;
     pCaps->mipiLanes         = ISI_MIPI_4LANES;
     pCaps->vinType           = ISI_ITF_TYPE_MIPI;
+    if (3 == pOV50a40Ctx->sensorMode.index) {
+        pCaps->mipiLanes         = ISI_MIPI_2LANES;
+    }
 
     if (pCaps->bitWidth == 10) {
         pCaps->mipiMode      = ISI_FORMAT_RAW_10;
@@ -168,7 +245,7 @@ static RESULT OV50a40_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
     RESULT result = RET_SUCCESS;
     TRACE(OV50a40_INFO, "%s (enter)\n", __func__);
 
-    OV50a40_Context_t *pOV50a40Ctx = (OV50a40_Context_t *) malloc(sizeof(OV50a40_Context_t));
+    OV50a40_Context_t *pOV50a40Ctx = (OV50a40_Context_t *) osMalloc(sizeof(OV50a40_Context_t));
     if (!pOV50a40Ctx) {
         TRACE(OV50a40_ERROR, "%s: Can't allocate ov50a40 context\n",__func__);
         return (RET_OUTOFMEM);
@@ -199,7 +276,7 @@ static RESULT OV50a40_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
 
     result = HalAddRef(pOV50a40Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pOV50a40Ctx);
+        osFree(pOV50a40Ctx);
         return (result);
     }
 
@@ -212,16 +289,14 @@ static RESULT OV50a40_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
 static RESULT OV50a40_AecSetModeParameters(IsiSensorHandle_t handle, OV50a40_Context_t * pOV50a40Ctx)
 {
     RESULT result = RET_SUCCESS;
-    uint16_t value = 0, regVal = 0;
-    float again = 0, dgain = 0;
+    uint16_t value = 0;
+    uint32_t regVal = 0;
+    float32_t again = 0, dgain = 0;
     TRACE(OV50a40_INFO, "%s%s: (enter)\n", __func__, pOV50a40Ctx->isAfpsRun ? "(AFPS)" : "");
 
     pOV50a40Ctx->aecIntegrationTimeIncrement = pOV50a40Ctx->oneLineExpTime;
     pOV50a40Ctx->aecMinIntegrationTime       = pOV50a40Ctx->oneLineExpTime * pOV50a40Ctx->minIntegrationLine;
     pOV50a40Ctx->aecMaxIntegrationTime       = pOV50a40Ctx->oneLineExpTime * pOV50a40Ctx->maxIntegrationLine;
-    //pOV50a40Ctx->aecMaxIntegrationTime        = 0.04f;
-    pOV50a40Ctx->aecMinVSIntegrationTime     = pOV50a40Ctx->oneLineExpTime * pOV50a40Ctx->minVSIntegrationLine;
-    pOV50a40Ctx->aecMaxVSIntegrationTime     = pOV50a40Ctx->oneLineExpTime * pOV50a40Ctx->maxVSIntegrationLine;
 
     TRACE(OV50a40_DEBUG, "%s%s: AecMaxIntegrationTime = %f \n", __func__, pOV50a40Ctx->isAfpsRun ? "(AFPS)" : "",pOV50a40Ctx->aecMaxIntegrationTime);
 
@@ -232,20 +307,18 @@ static RESULT OV50a40_AecSetModeParameters(IsiSensorHandle_t handle, OV50a40_Con
     pOV50a40Ctx->oldIntegrationTime    = 0;
 
     OV50a40_IsiReadRegIss(handle, 0x3508, &value);
-    regVal = (value & 0x3f) << 8;
+    regVal = (value & 0x7f) << 7;
     OV50a40_IsiReadRegIss(handle, 0x3509, &value);
-    regVal = regVal | (value & 0xFF);
+    regVal = regVal | ((value >> 1) & 0x7f);
     again = regVal/128.0f;
-    
-    OV50a40_IsiReadRegIss(handle, 0x350a, &value);
-    regVal = (value & 0x3f) << 8;
-    OV50a40_IsiReadRegIss(handle, 0x350b, &value);
-    regVal = regVal | (value & 0xFF);
-    dgain = regVal/1024.0f;
-    pOV50a40Ctx->aecCurGain            = again * dgain;
+    dgain = 1.0f;
+    pOV50a40Ctx->aecCurGain = again * dgain;
 
+    
+    OV50a40_IsiReadRegIss(handle, 0x3500, &value);
+    regVal = value << 16;
     OV50a40_IsiReadRegIss(handle, 0x3501, &value);
-    regVal = value << 8;
+    regVal = regVal | (value << 8);
     OV50a40_IsiReadRegIss(handle, 0x3502, &value);
     regVal = regVal | (value & 0xFF);
     pOV50a40Ctx->aecCurIntegrationTime = regVal * pOV50a40Ctx->oneLineExpTime;
@@ -287,6 +360,21 @@ static RESULT OV50a40_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
                     OV50a40_IsiWriteRegIss(handle, OV50a40_mipi4lane_720p_init[i][0], OV50a40_mipi4lane_720p_init[i][1]);
                 }
                 break;
+            case 1:
+                for (int i = 0; i<sizeof(OV50a40_mipi4lane_4k_init) / sizeof(OV50a40_mipi4lane_4k_init[0]); i++) {
+                    OV50a40_IsiWriteRegIss(handle, OV50a40_mipi4lane_4k_init[i][0], OV50a40_mipi4lane_4k_init[i][1]);
+                }
+                break;
+            case 2:
+                for (int i = 0; i<sizeof(OV50a40_mipi4lane_8k_init) / sizeof(OV50a40_mipi4lane_8k_init[0]); i++) {
+                    OV50a40_IsiWriteRegIss(handle, OV50a40_mipi4lane_8k_init[i][0], OV50a40_mipi4lane_8k_init[i][1]);
+                }
+                break;
+            case 3:
+                for (int i = 0; i<sizeof(OV50a40_mipi4lane_8k_2lane_init) / sizeof(OV50a40_mipi4lane_8k_2lane_init[0]); i++) {
+                    OV50a40_IsiWriteRegIss(handle, OV50a40_mipi4lane_8k_2lane_init[i][0], OV50a40_mipi4lane_8k_2lane_init[i][1]);
+                }
+                break;
             default:
                 TRACE(OV50a40_INFO, "%s:not support sensor mode %d\n", __func__,pOV50a40Ctx->sensorMode.index);
                 return RET_NOTSUPP;
@@ -302,18 +390,63 @@ static RESULT OV50a40_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
 
     switch(pOV50a40Ctx->sensorMode.index) {
         case 0:
-            pOV50a40Ctx->oneLineExpTime   = 0.00014389;
+            pOV50a40Ctx->oneLineExpTime   = 0.000048;
             pOV50a40Ctx->frameLengthLines    = 0xa64;
             pOV50a40Ctx->curFrameLengthLines = pOV50a40Ctx->frameLengthLines;
             pOV50a40Ctx->maxIntegrationLine  = pOV50a40Ctx->frameLengthLines -32 ;
-            pOV50a40Ctx->minIntegrationLine  = 1;
-            pOV50a40Ctx->aecMaxGain          = 230;
+            pOV50a40Ctx->minIntegrationLine  = 4;
+            pOV50a40Ctx->aecMaxGain          = 127.99;
             pOV50a40Ctx->aecMinGain          = 1.0;
             pOV50a40Ctx->aGain.min           = 1.0;
-            pOV50a40Ctx->aGain.max           = 15.5;
+            pOV50a40Ctx->aGain.max           = 127.99;
             pOV50a40Ctx->aGain.step          = (1.0f/128.0f);
             pOV50a40Ctx->dGain.min           = 1.0;
-            pOV50a40Ctx->dGain.max           = 15;
+            pOV50a40Ctx->dGain.max           = 1.0;
+            pOV50a40Ctx->dGain.step          = (1.0f/1024.0f);
+            break;
+        case 1:
+            pOV50a40Ctx->oneLineExpTime   = 0.000066;
+            pOV50a40Ctx->frameLengthLines    = 0xe00;
+            pOV50a40Ctx->curFrameLengthLines = pOV50a40Ctx->frameLengthLines;
+            pOV50a40Ctx->maxIntegrationLine  = pOV50a40Ctx->frameLengthLines -32 ;
+            pOV50a40Ctx->minIntegrationLine  = 4;
+            pOV50a40Ctx->aecMaxGain          = 127.99;
+            pOV50a40Ctx->aecMinGain          = 1.0;
+            pOV50a40Ctx->aGain.min           = 1.0;
+            pOV50a40Ctx->aGain.max           = 127.99;
+            pOV50a40Ctx->aGain.step          = (1.0f/128.0f);
+            pOV50a40Ctx->dGain.min           = 1.0;
+            pOV50a40Ctx->dGain.max           = 1.0;
+            pOV50a40Ctx->dGain.step          = (1.0f/1024.0f);
+            break;
+        case 2:
+            pOV50a40Ctx->oneLineExpTime      = 0.000121;
+            pOV50a40Ctx->frameLengthLines    = 0x116c;
+            pOV50a40Ctx->curFrameLengthLines = pOV50a40Ctx->frameLengthLines;
+            pOV50a40Ctx->maxIntegrationLine  = pOV50a40Ctx->frameLengthLines -32 ;
+            pOV50a40Ctx->minIntegrationLine  = 4;
+            pOV50a40Ctx->aecMaxGain          = 127.99;
+            pOV50a40Ctx->aecMinGain          = 1.0;
+            pOV50a40Ctx->aGain.min           = 1.0;
+            pOV50a40Ctx->aGain.max           = 127.99;
+            pOV50a40Ctx->aGain.step          = (1.0f/128.0f);
+            pOV50a40Ctx->dGain.min           = 1.0;
+            pOV50a40Ctx->dGain.max           = 1.0;
+            pOV50a40Ctx->dGain.step          = (1.0f/1024.0f);
+            break;
+        case 3:
+            pOV50a40Ctx->oneLineExpTime      = 0.000064;
+            pOV50a40Ctx->frameLengthLines    = 0x186c;
+            pOV50a40Ctx->curFrameLengthLines = pOV50a40Ctx->frameLengthLines;
+            pOV50a40Ctx->maxIntegrationLine  = pOV50a40Ctx->frameLengthLines -32 ;
+            pOV50a40Ctx->minIntegrationLine  = 4;
+            pOV50a40Ctx->aecMaxGain          = 127.99;
+            pOV50a40Ctx->aecMinGain          = 1.0;
+            pOV50a40Ctx->aGain.min           = 1.0;
+            pOV50a40Ctx->aGain.max           = 127.99;
+            pOV50a40Ctx->aGain.step          = (1.0f/128.0f);
+            pOV50a40Ctx->dGain.min           = 1.0;
+            pOV50a40Ctx->dGain.max           = 1.0;
             pOV50a40Ctx->dGain.step          = (1.0f/1024.0f);
             break;
         default:
@@ -363,11 +496,11 @@ static RESULT OV50a40_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOV50a40Ctx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOV50a40Ctx->isiCtx.halI2cHandle);
     (void)HalDelRef(pOV50a40Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOV50a40Ctx->isiCtx.halI2cHandle);
 
     MEMSET(pOV50a40Ctx, 0, sizeof(OV50a40_Context_t));
-    free(pOV50a40Ctx);
+    osFree(pOV50a40Ctx);
     TRACE(OV50a40_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -472,31 +605,20 @@ static RESULT OV50a40_IsiGetAeBaseInfoIss(IsiSensorHandle_t handle, IsiAeBaseInf
         return (RET_NULL_POINTER);
     }
 
-    //get time limit and total gain limit
-    pAeBaseInfo->gain.min        = pOV50a40Ctx->aecMinGain;
+    /* linear mode*/
+    pAeBaseInfo->gain.min        = pOV50a40Ctx->aecMinGain;//total gain
     pAeBaseInfo->gain.max        = pOV50a40Ctx->aecMaxGain;
     pAeBaseInfo->intTime.min     = pOV50a40Ctx->aecMinIntegrationTime;
     pAeBaseInfo->intTime.max     = pOV50a40Ctx->aecMaxIntegrationTime;
 
-    pAeBaseInfo->vsGain.min      = pOV50a40Ctx->aecMinGain;
-    pAeBaseInfo->vsGain.max      = pOV50a40Ctx->aecMaxGain;
-    pAeBaseInfo->vsIntTime.min   = pOV50a40Ctx->aecMinVSIntegrationTime;
-    pAeBaseInfo->vsIntTime.max   = pOV50a40Ctx->aecMaxVSIntegrationTime;
-
-    //get again/dgain info
-    pAeBaseInfo->aGain           = pOV50a40Ctx->aGain;
+    pAeBaseInfo->aGain           = pOV50a40Ctx->aGain;//min, max, step
     pAeBaseInfo->dGain           = pOV50a40Ctx->dGain;
-    pAeBaseInfo->aVSGain         = pOV50a40Ctx->aVSGain;
-    pAeBaseInfo->dVSGain         = pOV50a40Ctx->dVSGain;
-    
+
     pAeBaseInfo->aecCurGain      = pOV50a40Ctx->aecCurGain;
     pAeBaseInfo->aecCurIntTime   = pOV50a40Ctx->aecCurIntegrationTime;
-    //pAeBaseInfo->aecCurVSGain    = (pOV50a40Ctx->curVSAgain) * (pOV50a40Ctx->curVSDgain);
-    //pAeBaseInfo->aecCurVSIntTime = pOV50a40Ctx->aecCurVSIntegrationTime;
-    //pAeBaseInfo->aecCurLongGain  = 0;
+
     pAeBaseInfo->aecGainStep     = pOV50a40Ctx->aecGainIncrement;
     pAeBaseInfo->aecIntTimeStep  = pOV50a40Ctx->aecIntegrationTimeIncrement;
-    pAeBaseInfo->stitchingMode   = pOV50a40Ctx->sensorMode.stitchingMode;
 
     TRACE(OV50a40_INFO, "%s: (enter)\n", __func__);
     return (result);
@@ -506,34 +628,17 @@ RESULT OV50a40_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV50a40_INFO, "%s: (enter)\n", __func__);
-    uint32_t again = 0, vsagain = 0;
+    uint32_t again = 0;
 
     OV50a40_Context_t *pOV50a40Ctx = (OV50a40_Context_t *) handle;
     if (pOV50a40Ctx == NULL || pOV50a40Ctx->isiCtx.halI2cHandle == NULL) {
         return RET_NULL_POINTER;
     }
 
-    if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
-        again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 128);
-        result = OV50a40_IsiWriteRegIss(handle, 0x3508,(again & 0x3f00)>>8);
-        result |= OV50a40_IsiWriteRegIss(handle, 0x3509,(again & 0xff));
-        pOV50a40Ctx->curAgain = again/128.0f;   
-
-    } else if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
-        again = (uint32_t)(pSensorAGain->gain[ISI_DUAL_EXP_L_PARAS] * 128);
-        result = OV50a40_IsiWriteRegIss(handle, 0x3508,(again & 0x3f00)>>8);
-        result |= OV50a40_IsiWriteRegIss(handle, 0x3509,(again & 0xff));
-        pOV50a40Ctx->curAgain = again/128.0f;
-
-        vsagain = (uint32_t)(pSensorAGain->gain[ISI_DUAL_EXP_S_PARAS] * 128);
-        result |=  OV50a40_IsiWriteRegIss(handle, 0x350c,(vsagain & 0x3f00)>>8);
-        result |= OV50a40_IsiWriteRegIss(handle, 0x350d,(vsagain & 0x00ff));
-        pOV50a40Ctx->curVSAgain = vsagain/128.0f;
-
-    }  else {
-        TRACE(OV50a40_INFO, "%s:not support this ExpoFrmType.\n", __func__);
-        return RET_NOTSUPP;
-    }
+    again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 128);
+    result = OV50a40_IsiWriteRegIss(handle, 0x3508, (again >> 7) & 0x7f);
+    result |= OV50a40_IsiWriteRegIss(handle, 0x3509,(again & 0x7f) << 1);
+    pOV50a40Ctx->curAgain = again/128.0f;
 
     TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -543,36 +648,14 @@ RESULT OV50a40_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV50a40_INFO, "%s: (enter)\n", __func__);
-    uint32_t dgain = 0, vsdgain = 0;
 
     OV50a40_Context_t *pOV50a40Ctx = (OV50a40_Context_t *) handle;
     if (pOV50a40Ctx == NULL || pOV50a40Ctx->isiCtx.halI2cHandle == NULL) {
         return RET_NULL_POINTER;
     }
 
-    if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
-        dgain = (uint32_t)(pSensorDGain->gain[ISI_LINEAR_PARAS] * 1024);
-        result = OV50a40_IsiWriteRegIss(handle, 0x350a, (dgain >> 8) & 0x3f);
-        result |= OV50a40_IsiWriteRegIss(handle,0x350b, (dgain & 0xff));
-        pOV50a40Ctx->curDgain = dgain/1024.0f;
-        pOV50a40Ctx->aecCurGain = pOV50a40Ctx->curAgain * pOV50a40Ctx->curDgain;
-
-    } else if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
-        dgain = (uint32_t)(pSensorDGain->gain[ISI_DUAL_EXP_L_PARAS] * 1024);
-        result = OV50a40_IsiWriteRegIss(handle, 0x350a, (dgain >> 8) & 0x3f);
-        result |= OV50a40_IsiWriteRegIss(handle,0x350b, (dgain & 0xff));
-        pOV50a40Ctx->curDgain = dgain/1024.0f;
-        pOV50a40Ctx->aecCurGain = pOV50a40Ctx->curAgain * pOV50a40Ctx->curDgain;
-
-        vsdgain = (uint32_t)(pSensorDGain->gain[ISI_DUAL_EXP_S_PARAS] * 1024);
-        result |=  OV50a40_IsiWriteRegIss(handle, 0x350e, (vsdgain >> 8) & 0x3f);
-        result |=  OV50a40_IsiWriteRegIss(handle, 0x350f, (vsdgain & 0xff));
-        pOV50a40Ctx->curVSDgain = vsdgain/1024.0f;
-
-    }  else {
-        TRACE(OV50a40_INFO, "%s:not support this ExpoFrmType.\n", __func__);
-        return RET_NOTSUPP;
-    }
+    pOV50a40Ctx->curDgain = 1.0;
+    pOV50a40Ctx->aecCurGain = pOV50a40Ctx->curAgain * pOV50a40Ctx->curDgain;
 
     TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -593,17 +676,7 @@ RESULT OV50a40_IsiGetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         return (RET_NULL_POINTER);
     }
 
-    if(pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
-        pSensorAGain->gain[ISI_LINEAR_PARAS]       = pOV50a40Ctx->curAgain;
-
-    } else if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
-        pSensorAGain->gain[ISI_DUAL_EXP_L_PARAS]   = pOV50a40Ctx->curAgain;
-        pSensorAGain->gain[ISI_DUAL_EXP_S_PARAS]   = pOV50a40Ctx->curVSAgain;
-
-    } else {
-        TRACE(OV50a40_INFO, "%s:not support this ExpoFrmType.\n", __func__);
-        return RET_NOTSUPP;
-    }
+    pSensorAGain->gain[ISI_LINEAR_PARAS]       = pOV50a40Ctx->curAgain;
 
     TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -624,17 +697,7 @@ RESULT OV50a40_IsiGetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         return (RET_NULL_POINTER);
     }
 
-    if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
-        pSensorDGain->gain[ISI_LINEAR_PARAS] = pOV50a40Ctx->curDgain;
-
-    } else if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
-        pSensorDGain->gain[ISI_DUAL_EXP_L_PARAS]  = pOV50a40Ctx->curDgain;
-        pSensorDGain->gain[ISI_DUAL_EXP_S_PARAS]  = pOV50a40Ctx->curVSDgain;
-
-    } else {
-        TRACE(OV50a40_INFO, "%s:not support this ExpoFrmType.\n", __func__);
-        return RET_NOTSUPP;
-    }
+    pSensorDGain->gain[ISI_LINEAR_PARAS] = pOV50a40Ctx->curDgain;
 
     TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -644,6 +707,7 @@ RESULT OV50a40_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime
 {
     RESULT result = RET_SUCCESS;
     TRACE(OV50a40_INFO, "%s: (enter)\n", __func__);
+    uint32_t expLine = 0;
     OV50a40_Context_t *pOV50a40Ctx = (OV50a40_Context_t *) handle;
 
     if (!pOV50a40Ctx) {
@@ -651,86 +715,16 @@ RESULT OV50a40_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime
         return (RET_WRONG_HANDLE);
     }
 
-    if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
-        result = OV50a40_SetIntTime(handle, pSensorIntTime->intTime[ISI_LINEAR_PARAS]);
-        if (result != RET_SUCCESS) {
-            TRACE(OV50a40_INFO, "%s: set sensor IntTime[ISI_LINEAR_PARAS] error!\n", __func__);
-            return RET_FAILURE;
-        }
-
-    } else if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
-        result = OV50a40_SetIntTime(handle, pSensorIntTime->intTime[ISI_DUAL_EXP_L_PARAS]);
-        if (result != RET_SUCCESS) {
-            TRACE(OV50a40_INFO, "%s: set sensor IntTime[ISI_DUAL_EXP_L_PARAS] error!\n", __func__);
-            return RET_FAILURE;
-        }
-
-        result = OV50a40_SetVSIntTime(handle, pSensorIntTime->intTime[ISI_DUAL_EXP_S_PARAS]);
-        if (result != RET_SUCCESS) {
-            TRACE(OV50a40_INFO, "%s: set sensor IntTime[ISI_DUAL_EXP_S_PARAS] error!\n", __func__);
-            return RET_FAILURE;
-        }
-
-    }  else {
-        TRACE(OV50a40_INFO, "%s:not support this ExpoFrmType.\n", __func__);
-        return RET_NOTSUPP;
-    }
-
-    TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
-    return (result);
-}
-
-static RESULT OV50a40_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
-{
-    RESULT result = RET_SUCCESS;
-    TRACE(OV50a40_INFO, "%s: (enter)\n", __func__);
-    OV50a40_Context_t *pOV50a40Ctx = (OV50a40_Context_t *) handle;
-    uint32_t expLine = 0;
-
-    if (!pOV50a40Ctx) {
-        TRACE(OV50a40_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
-        return (RET_WRONG_HANDLE);
-    }
-
-    expLine = newIntegrationTime / pOV50a40Ctx->oneLineExpTime;
-    expLine = MIN(pOV50a40Ctx->maxIntegrationLine,MAX(4, expLine));
+    expLine = pSensorIntTime->intTime[ISI_LINEAR_PARAS] / pOV50a40Ctx->oneLineExpTime;
+    expLine = MIN(pOV50a40Ctx->maxIntegrationLine, MAX(pOV50a40Ctx->minIntegrationLine, expLine));
     TRACE(OV50a40_DEBUG, "%s: set expLine = 0x%04x\n", __func__, expLine);
 
-    result =  OV50a40_IsiWriteRegIss(handle, 0x3501,(expLine >>8) & 0xff);
-    result |= OV50a40_IsiWriteRegIss(handle, 0x3502,(expLine & 0xff));
+    result  = OV50a40_IsiWriteRegIss(handle, 0x3500, (expLine >> 16) & 0xff);
+    result |= OV50a40_IsiWriteRegIss(handle, 0x3501, (expLine >> 8) & 0xff);
+    result |= OV50a40_IsiWriteRegIss(handle, 0x3502, (expLine & 0xff));
 
     pOV50a40Ctx->aecCurIntegrationTime = expLine * pOV50a40Ctx->oneLineExpTime;
 
-    TRACE(OV50a40_DEBUG, "%s: set IntTime = %f\n", __func__, pOV50a40Ctx->aecCurIntegrationTime);
-    TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
-    return (result);
-}
-
-static RESULT OV50a40_SetVSIntTime(IsiSensorHandle_t handle, float newIntegrationTime)
-{
-    RESULT result = RET_SUCCESS;
-    TRACE(OV50a40_INFO, "%s: (enter)\n", __func__);
-    OV50a40_Context_t *pOV50a40Ctx = (OV50a40_Context_t *) handle;
-    uint32_t expLine = 0;
-
-    if (!pOV50a40Ctx) {
-        TRACE(OV50a40_ERROR,"%s: Invalid sensor handle (NULL pointer detected)\n",__func__);
-        return (RET_WRONG_HANDLE);
-    }
-
-    expLine = newIntegrationTime / pOV50a40Ctx->oneLineExpTime;
-#ifdef ISP_MI_HDR
-    expLine = MIN(550/2, MAX(4, expLine)); // 40ms
-#else
-    expLine = MIN(51, MAX(1, expLine));   //61
-#endif
-
-    result =  OV50a40_IsiWriteRegIss(handle, 0x3511,(expLine >> 8) & 0xff);
-    result |= OV50a40_IsiWriteRegIss(handle, 0x3512,(expLine & 0xff));
-
-    pOV50a40Ctx->aecCurVSIntegrationTime = expLine * pOV50a40Ctx->oneLineExpTime;
-
-    TRACE(OV50a40_DEBUG, "%s: set VSIntTime = %f\n", __func__, pOV50a40Ctx->aecCurVSIntegrationTime);
     TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
     return (result);
 }
@@ -748,17 +742,7 @@ RESULT OV50a40_IsiGetIntTimeIss(IsiSensorHandle_t handle, IsiSensorIntTime_t *pS
 
     if (!pSensorIntTime) return (RET_NULL_POINTER);
 
-    if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
-        pSensorIntTime->intTime[ISI_LINEAR_PARAS] = pOV50a40Ctx->aecCurIntegrationTime;
-
-    } else if (pOV50a40Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_STITCH) {
-        pSensorIntTime->intTime[ISI_DUAL_EXP_L_PARAS]   = pOV50a40Ctx->aecCurIntegrationTime;
-        pSensorIntTime->intTime[ISI_DUAL_EXP_S_PARAS]   = pOV50a40Ctx->aecCurVSIntegrationTime;
-
-    } else {
-        TRACE(OV50a40_INFO, "%s:not support this ExpoFrmType.\n", __func__);
-        return RET_NOTSUPP;
-    }
+    pSensorIntTime->intTime[ISI_LINEAR_PARAS] = pOV50a40Ctx->aecCurIntegrationTime;
 
     TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -802,14 +786,14 @@ RESULT OV50a40_IsiSetFpsIss(IsiSensorHandle_t handle, uint32_t fps)
         TRACE(OV50a40_ERROR,"%s: set fps(%d) out of range, correct to %d (%d, %d)\n",__func__, fps, pOV50a40Ctx->minFps, pOV50a40Ctx->minFps,pOV50a40Ctx->maxFps);
         fps = pOV50a40Ctx->minFps;
     }
-     
+
     NewVts = pOV50a40Ctx->frameLengthLines*pOV50a40Ctx->sensorMode.fps / fps;
     result =  OV50a40_IsiWriteRegIss(handle, 0x380e, NewVts >> 8);
     result |=  OV50a40_IsiWriteRegIss(handle, 0x380f, NewVts & 0xff);
     pOV50a40Ctx->currFps              = fps;
     pOV50a40Ctx->curFrameLengthLines  = NewVts;
     pOV50a40Ctx->maxIntegrationLine   = pOV50a40Ctx->curFrameLengthLines - 8;
-    //pOV50a40Ctx->aecMaxIntegrationTime = pOV50a40Ctx->maxIntegrationLine * pOV50a40Ctx->oneLineExpTime;
+    pOV50a40Ctx->aecMaxIntegrationTime = pOV50a40Ctx->maxIntegrationLine * pOV50a40Ctx->oneLineExpTime;
 
     TRACE(OV50a40_INFO, "%s: (exit)\n", __func__);
     return (result);

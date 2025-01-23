@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/types.h>
 #include <ebase/trace.h>
@@ -29,16 +43,6 @@ CREATE_TRACER(OS02k10_ERROR, "OS02k10: ", ERROR,   1);
 CREATE_TRACER(OS02k10_DEBUG,     "OS02k10: ", INFO, 1);
 CREATE_TRACER(OS02k10_REG_INFO , "OS02k10: ", INFO, 1);
 CREATE_TRACER(OS02k10_REG_DEBUG, "OS02k10: ", INFO, 1);
-
-#ifdef SUBDEV_V4L2
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <linux/videodev2.h>
-#include <linux/v4l2-subdev.h>
-#undef TRACE
-#define TRACE(x, ...)
-#endif
 
 #define OS02k10_MIN_GAIN_STEP    (1.0f/256.0f)  /**< min gain step size used by GUI (hardware min = 1/16; 1/16..32/16 depending on actual gain) */
 
@@ -212,7 +216,7 @@ static RESULT OS02k10_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig)
     if (!pConfig || !pConfig->pSensor)
         return (RET_NULL_POINTER);
 
-    pOS02k10Ctx = (OS02k10_Context_t *) malloc(sizeof(OS02k10_Context_t));
+    pOS02k10Ctx = (OS02k10_Context_t *) osMalloc(sizeof(OS02k10_Context_t));
     if (!pOS02k10Ctx) {
         TRACE(OS02k10_ERROR, "%s: Can't allocate os02k10 context\n",__func__);
         return (RET_OUTOFMEM);
@@ -222,7 +226,7 @@ static RESULT OS02k10_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig)
 
     result = HalAddRef(pConfig->halHandle);
     if (result != RET_SUCCESS) {
-        free(pOS02k10Ctx);
+        osFree(pOS02k10Ctx);
         return (result);
     }
 
@@ -291,11 +295,6 @@ static RESULT OS02k10_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig)
     pOS02k10Ctx->pattern = ISI_BPAT_BGGR;
 #endif
 
-#ifdef SUBDEV_V4L2
-    pOS02k10Ctx->pattern = ISI_BPAT_BGGR;
-    pOS02k10Ctx->subdev = HalGetFdHandle(pConfig->halHandle, HAL_MODULE_SENSOR);
-    pOS02k10Ctx->KernelDriverFlag = 1;
-#endif
     TRACE(OS02k10_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -313,7 +312,7 @@ static RESULT OS02k10_IsiReleaseIss(IsiSensorHandle_t handle) {
     (void)HalDelRef(pOS02k10Ctx->IsiCtx.HalHandle);
 
     MEMSET(pOS02k10Ctx, 0, sizeof(OS02k10_Context_t));
-    free(pOS02k10Ctx);
+    osFree(pOS02k10Ctx);
     TRACE(OS02k10_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -500,7 +499,7 @@ static RESULT OS02k10_IsiGetRegCfgIss(const char *registerFileName, struct vvsen
     }
 
     array->sccb_data =
-        malloc(FileTotalLine * sizeof(struct vvsensor_sccb_data_s));
+        osMalloc(FileTotalLine * sizeof(struct vvsensor_sccb_data_s));
     if (array->sccb_data == NULL) {
         TRACE(OS02k10_ERROR, "%s:malloc failed NULL Point!\n", __func__, registerFileName);
         return (RET_FAILURE);
@@ -592,34 +591,16 @@ static RESULT OS02k10_IsiSetupIss(IsiSensorHandle_t handle)
             return (RET_FAILURE);
         }
         pOS02k10Ctx->one_line_exp_time =
-            (float)ae_info.one_line_exp_time_ns / 1000000000;
+            (float32_t)ae_info.one_line_exp_time_ns / 1000000000;
         pOS02k10Ctx->MaxIntegrationLine = ae_info.max_integration_time;
         pOS02k10Ctx->MinIntegrationLine = ae_info.min_integration_time;
         pOS02k10Ctx->gain_accuracy = ae_info.gain_accuracy;
-        pOS02k10Ctx->AecMinGain = (float)(ae_info.min_gain) / ae_info.gain_accuracy;
-        pOS02k10Ctx->AecMaxGain = (float)(ae_info.max_gain) / ae_info.gain_accuracy;
+        pOS02k10Ctx->AecMinGain = (float32_t)(ae_info.min_gain) / ae_info.gain_accuracy;
+        pOS02k10Ctx->AecMaxGain = (float32_t)(ae_info.max_gain) / ae_info.gain_accuracy;
 
         pOS02k10Ctx->MaxFps  = pOS02k10Ctx->SensorMode.fps;
         pOS02k10Ctx->MinFps  = 1;
         pOS02k10Ctx->CurrFps = pOS02k10Ctx->MaxFps;*/
-#endif
-
-#ifdef SUBDEV_V4L2
-        ret = ioctl(pHalCtx->sensor_fd, VVSENSORIOC_G_SENSOR_MODE, &(pOS02k10Ctx->SensorMode));
-        if (ret != 0) {
-            TRACE(OS02k10_ERROR, "%s:2-sensor get mode info error!\n", __func__);
-            return (RET_FAILURE);
-        }
-
-        pOS02k10Ctx->one_line_exp_time  = (float) (pOS02k10Ctx->SensorMode.ae_info.one_line_exp_time_ns) / 1000000000;
-        pOS02k10Ctx->MaxIntegrationLine = pOS02k10Ctx->SensorMode.ae_info.max_integration_time;
-        pOS02k10Ctx->MinIntegrationLine = pOS02k10Ctx->SensorMode.ae_info.min_integration_time;
-        pOS02k10Ctx->gain_accuracy      = pOS02k10Ctx->SensorMode.ae_info.gain_accuracy;
-        pOS02k10Ctx->AecMaxGain         = (float)(pOS02k10Ctx->SensorMode.ae_info.max_gain) /pOS02k10Ctx->gain_accuracy ;
-        pOS02k10Ctx->AecMinGain         = (float)(pOS02k10Ctx->SensorMode.ae_info.min_gain) / pOS02k10Ctx->gain_accuracy ;
-        pOS02k10Ctx->MaxFps             = pOS02k10Ctx->SensorMode.fps;
-        pOS02k10Ctx->CurrFps            = pOS02k10Ctx->MaxFps;
-
 #endif
 
     } else {
@@ -808,9 +789,9 @@ static RESULT OS02k10_IsiSetStreamingIss(IsiSensorHandle_t handle, bool_t on)
     return (result);
 }
 
-RESULT OS02k10_IsiExposureControlIss(IsiSensorHandle_t handle,float NewGain,
-                float NewIntegrationTime,uint8_t * pNumberOfFramesToSkip,
-                float *pSetGain, float *pSetIntegrationTime, float *hdr_ratio)
+RESULT OS02k10_IsiExposureControlIss(IsiSensorHandle_t handle,float32_t NewGain,
+                float32_t NewIntegrationTime,uint8_t * pNumberOfFramesToSkip,
+                float32_t *pSetGain, float32_t *pSetIntegrationTime, float32_t *hdr_ratio)
 {
     OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -831,13 +812,13 @@ RESULT OS02k10_IsiExposureControlIss(IsiSensorHandle_t handle,float NewGain,
     }
     TRACE(OS02k10_DEBUG, "%s: g=%f, Ti=%f\n", __func__, NewGain,NewIntegrationTime);
 
-    float long_gain   = 0, long_exp    = 0;
-    float short_gain  = 0, short_exp   = 0;
-    float vs_gain     = 0, vs_exp      = 0;
+    float32_t long_gain   = 0, long_exp    = 0;
+    float32_t short_gain  = 0, short_exp   = 0;
+    float32_t vs_gain     = 0, vs_exp      = 0;
     if (pOS02k10Ctx->SensorMode.hdr_mode == SENSOR_MODE_HDR_STITCH) {
-        float long_exposure_measure  = NewIntegrationTime * NewGain*hdr_ratio[0];
-        float short_exposure_measure = NewIntegrationTime*NewGain;
-        float vs_exp_measure         = short_exposure_measure / hdr_ratio[1]; 
+        float32_t long_exposure_measure  = NewIntegrationTime * NewGain*hdr_ratio[0];
+        float32_t short_exposure_measure = NewIntegrationTime*NewGain;
+        float32_t vs_exp_measure         = short_exposure_measure / hdr_ratio[1]; 
         
         //2exposure
         if (pOS02k10Ctx->SensorMode.stitching_mode == SENSOR_STITCHING_L_AND_S ||
@@ -906,7 +887,7 @@ RESULT OS02k10_IsiExposureControlIss(IsiSensorHandle_t handle,float NewGain,
     return result;
 }
 
-static RESULT OS02k10_IsiGetGainLimitsIss (IsiSensorHandle_t handle, float *pMinGain, float *pMaxGain) 
+static RESULT OS02k10_IsiGetGainLimitsIss (IsiSensorHandle_t handle, float32_t *pMinGain, float32_t *pMaxGain) 
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -930,7 +911,7 @@ static RESULT OS02k10_IsiGetGainLimitsIss (IsiSensorHandle_t handle, float *pMin
     return (result);
 }
 
-static RESULT OS02k10_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, float *pMinIntegrationTime, float *pMaxIntegrationTime) 
+static RESULT OS02k10_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, float32_t *pMinIntegrationTime, float32_t *pMaxIntegrationTime) 
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -953,7 +934,7 @@ static RESULT OS02k10_IsiGetIntegrationTimeLimitsIss(IsiSensorHandle_t handle, f
     return (result);
 }
 
-RESULT OS02k10_IsiGetCurrentExposureIss(IsiSensorHandle_t handle, float *pSetGain, float *pSetIntegrationTime, float *hdr_ratio)
+RESULT OS02k10_IsiGetCurrentExposureIss(IsiSensorHandle_t handle, float32_t *pSetGain, float32_t *pSetIntegrationTime, float32_t *hdr_ratio)
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -976,7 +957,7 @@ RESULT OS02k10_IsiGetCurrentExposureIss(IsiSensorHandle_t handle, float *pSetGai
     return (result);
 }
 
-RESULT OS02k10_IsiGetGainIss(IsiSensorHandle_t handle, float *pSetGain)
+RESULT OS02k10_IsiGetGainIss(IsiSensorHandle_t handle, float32_t *pSetGain)
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -997,7 +978,7 @@ RESULT OS02k10_IsiGetGainIss(IsiSensorHandle_t handle, float *pSetGain)
     return (result);
 }
 
-RESULT OS02k10_IsiGetVSGainIss(IsiSensorHandle_t handle, float *pSetGain)
+RESULT OS02k10_IsiGetVSGainIss(IsiSensorHandle_t handle, float32_t *pSetGain)
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -1020,7 +1001,7 @@ RESULT OS02k10_IsiGetVSGainIss(IsiSensorHandle_t handle, float *pSetGain)
     return (result);
 }
 
-RESULT OS02k10_IsiGetLongGainIss(IsiSensorHandle_t handle, float *gain)
+RESULT OS02k10_IsiGetLongGainIss(IsiSensorHandle_t handle, float32_t *gain)
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
 
@@ -1042,7 +1023,7 @@ RESULT OS02k10_IsiGetLongGainIss(IsiSensorHandle_t handle, float *gain)
     return (RET_SUCCESS);
 }
 
-RESULT OS02k10_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float *pIncr) 
+RESULT OS02k10_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float32_t *pIncr) 
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -1063,10 +1044,10 @@ RESULT OS02k10_IsiGetGainIncrementIss(IsiSensorHandle_t handle, float *pIncr)
     return (result);
 }
 
-RESULT OS02k10_IsiSetGainIss(IsiSensorHandle_t handle,float NewGain, float *pSetGain, const float *hdr_ratio)
+RESULT OS02k10_IsiSetGainIss(IsiSensorHandle_t handle,float32_t NewGain, float32_t *pSetGain, const float32_t *hdr_ratio)
 {
     RESULT result = RET_SUCCESS;
-    float dGainLcg = 0.0f,aGainLcg = 0.0;
+    float32_t dGainLcg = 0.0f,aGainLcg = 0.0;
     uint32_t dgainLcg = 0, againLcg = 0;
     OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     if (pOS02k10Ctx == NULL || pOS02k10Ctx->IsiCtx.HalHandle == NULL) {
@@ -1138,13 +1119,13 @@ RESULT OS02k10_IsiSetGainIss(IsiSensorHandle_t handle,float NewGain, float *pSet
     return (result);
 }
 
-RESULT OS02k10_IsiSetVSGainIss(IsiSensorHandle_t handle,float NewIntegrationTime, float NewGain, float *pSetGain, const float *hdr_ratio)
+RESULT OS02k10_IsiSetVSGainIss(IsiSensorHandle_t handle,float32_t NewIntegrationTime, float32_t NewGain, float32_t *pSetGain, const float32_t *hdr_ratio)
 {
     OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     const HalContext_t *pHalCtx = (HalContext_t *) pOS02k10Ctx->IsiCtx.HalHandle;
     RESULT result = RET_SUCCESS;
 
-    float Gain = 0.0f,aGain= 0.0f;
+    float32_t Gain = 0.0f,aGain= 0.0f;
     uint32_t ucgain = 0U;
     uint32_t again = 0U;
     if (NewGain < pOS02k10Ctx->AecMinGain) {
@@ -1194,12 +1175,12 @@ RESULT OS02k10_IsiSetVSGainIss(IsiSensorHandle_t handle,float NewIntegrationTime
     return (result);
 }
 
-static RESULT OS02k10_IsiSetLongGainIss(IsiSensorHandle_t handle, float gain)
+static RESULT OS02k10_IsiSetLongGainIss(IsiSensorHandle_t handle, float32_t gain)
 {
     TRACE(OS02k10_INFO, "%s: (enter)\n", __func__);
 
     OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
-    float aGain= 0,dGain = 0;
+    float32_t aGain= 0,dGain = 0;
     uint32_t  again = 0,dgain= 0;
     if (gain < pOS02k10Ctx->AecMinGain) {
         gain = pOS02k10Ctx->AecMinGain;
@@ -1241,7 +1222,7 @@ static RESULT OS02k10_IsiSetLongGainIss(IsiSensorHandle_t handle, float gain)
     return (RET_SUCCESS);
 }
 
-RESULT OS02k10_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIntegrationTime)
+RESULT OS02k10_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pSetIntegrationTime)
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -1259,7 +1240,7 @@ RESULT OS02k10_IsiGetIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetInt
     return (result);
 }
 
-RESULT OS02k10_IsiGetVSIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetIntegrationTime)
+RESULT OS02k10_IsiGetVSIntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pSetIntegrationTime)
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -1277,7 +1258,7 @@ RESULT OS02k10_IsiGetVSIntegrationTimeIss(IsiSensorHandle_t handle, float *pSetI
     return (result);
 }
 
-RESULT OS02k10_IsiGetLongIntegrationTimeIss(IsiSensorHandle_t handle, float *pIntegrationTime)
+RESULT OS02k10_IsiGetLongIntegrationTimeIss(IsiSensorHandle_t handle, float32_t *pIntegrationTime)
 {
     OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     TRACE(OS02k10_INFO, "%s: (enter)\n", __func__);
@@ -1296,7 +1277,7 @@ RESULT OS02k10_IsiGetLongIntegrationTimeIss(IsiSensorHandle_t handle, float *pIn
     return (RET_SUCCESS);
 }
 
-RESULT OS02k10_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float *pIncr)
+RESULT OS02k10_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float32_t *pIncr)
 {
     const OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     RESULT result = RET_SUCCESS;
@@ -1316,8 +1297,8 @@ RESULT OS02k10_IsiGetIntegrationTimeIncrementIss(IsiSensorHandle_t handle, float
     return (result);
 }
 
-RESULT OS02k10_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegrationTime,float *pSetIntegrationTime,
-                                        uint8_t * pNumberOfFramesToSkip, float *hdr_ratio)
+RESULT OS02k10_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime,float32_t *pSetIntegrationTime,
+                                        uint8_t * pNumberOfFramesToSkip, float32_t *hdr_ratio)
 {
     RESULT result = RET_SUCCESS;
 
@@ -1376,8 +1357,8 @@ RESULT OS02k10_IsiSetIntegrationTimeIss(IsiSensorHandle_t handle, float NewInteg
     return (result);
 }
 
-RESULT OS02k10_IsiSetVSIntegrationTimeIss(IsiSensorHandle_t handle, float NewIntegrationTime,float *pSetVSIntegrationTime,
-                                            uint8_t * pNumberOfFramesToSkip, float *hdr_ratio)
+RESULT OS02k10_IsiSetVSIntegrationTimeIss(IsiSensorHandle_t handle, float32_t NewIntegrationTime,float32_t *pSetVSIntegrationTime,
+                                            uint8_t * pNumberOfFramesToSkip, float32_t *hdr_ratio)
 {
     OS02k10_Context_t *pOS02k10Ctx = (OS02k10_Context_t *) handle;
     if (!pOS02k10Ctx) {
@@ -1428,7 +1409,7 @@ RESULT OS02k10_IsiSetVSIntegrationTimeIss(IsiSensorHandle_t handle, float NewInt
     return (result);
 }
 
-static RESULT OS02k10_IsiSetLongIntegrationTimeIss(IsiSensorHandle_t handle, float IntegrationTime)
+static RESULT OS02k10_IsiSetLongIntegrationTimeIss(IsiSensorHandle_t handle, float32_t IntegrationTime)
 {
     TRACE(OS02k10_INFO, "%s: (enter)\n", __func__);
 

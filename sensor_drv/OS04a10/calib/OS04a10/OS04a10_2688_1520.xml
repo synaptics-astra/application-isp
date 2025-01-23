@@ -1290,7 +1290,7 @@
                2688x1520
             </resolution>
             <blsData index="1" type="double" size="[1 4]">
-               [64 64 64 64]
+               [128 128 128 128]
             </blsData>
          </cell>
       </BLS>

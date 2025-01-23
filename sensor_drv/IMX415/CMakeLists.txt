@@ -97,7 +97,7 @@ elseif(${STATIC_BUILD} STREQUAL 1)
             )
 endif()
 # create common targets for this module
-include(${DRIVER_TOP_DIRECTORY}/targets.cmake)
+include(${UNITS_TOP_DIRECTORY}/targets.cmake)
 
 # create calib data targets
-add_subdirectory(calib)
+#add_subdirectory(calib)

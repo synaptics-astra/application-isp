@@ -1,28 +1,14 @@
-/****************************************************************************
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2022 Vivante Corporation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
- ****************************************************************************/
+/******************************************************************************\
+|* Copyright (c) <2024> by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")     *|
+|* All Rights Reserved.                                                       *|
+|*                                                                            *|
+|* The material in this file is confidential and contains trade secrets       *|
+|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
+|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
+|* transmitted, or used in any way for any purpose, without the express       *|
+|* written permission of VeriSilicon.                                         *|
+|*                                                                            *|
+\******************************************************************************/
 
 #ifndef __CAMERA_DEVICE_BUF_DEFS_H__
 #define __CAMERA_DEVICE_BUF_DEFS_H__
@@ -68,6 +54,9 @@ DCT_ASSERT_STATIC(((PIC_BUFFER_NUM_INPUT*PIC_BUFFER_SIZE_INPUT) + (PIC_BUFFER_NU
 #define PIC_BUFFER_NUM_MCMWR_SENSOR  (6)
 #define PIC_BUFFER_SIZE_MCMWR_SENSOR (8 * 1024 * 1024)
 
+#define PIC_BUFFER_NUM_METADATA      (10)
+#define PIC_BUFFER_SIZE_METADATA (8* 1024 * 1024)    //  2MPixel@4:4:4  => 6MByte
+
 #ifdef ISP_MI_HDR
 #define PIC_BUFFER_NUM_HDR_SENSOR  (6)
 #define PIC_BUFFER_SIZE_HDR_SENSOR (8 * 1024 * 1024)
@@ -81,12 +70,14 @@ DCT_ASSERT_STATIC(((PIC_BUFFER_NUM_INPUT*PIC_BUFFER_SIZE_INPUT) + (PIC_BUFFER_NU
 #define PIC_BUFFER_SIZE_SELF_SENSOR_IMGSTAB ( 6 * 1024 * 1024 )    // ISI_RES_4416_3312 => 14MPixel@12bit => 28MByte
 
 DCT_ASSERT_STATIC(((PIC_BUFFER_NUM_MAIN_SENSOR*PIC_BUFFER_SIZE_MAIN_SENSOR) + (PIC_BUFFER_NUM_SELF1_SENSOR*PIC_BUFFER_SIZE_SELF1_SENSOR) ) < PIC_BUFFER_MEM_SIZE_MAX);
-#else
-#define PIC_BUFFER_NUM_MAIN_SENSOR  (10)
-#define PIC_BUFFER_SIZE_MAIN_SENSOR (36 * 1024 * 1024)    // ISI_RES_4416_3312 => 14MPixel@12bit => 28MByte
+#else // ISP_SINGLE_DOM_OVER_MP
+//#define PIC_BUFFER_NUM_MAIN_SENSOR  (10)
+//#define PIC_BUFFER_SIZE_MAIN_SENSOR (36 * 1024 * 1024)    // ISI_RES_4416_3312 => 14MPixel@12bit => 28MByte
+#define PIC_BUFFER_NUM_MAIN_SENSOR  (6)
+#define PIC_BUFFER_SIZE_MAIN_SENSOR (64 * 1024 * 1024)    // 8k
 #define PIC_BUFFER_NUM_SELF1_SENSOR  (8)
 #define PIC_BUFFER_SIZE_SELF1_SENSOR (6 * 1024 * 1024)     // 2MPixel@4:4:4  => 6MByte
-#define PIC_BUFFER_NUM_SELF2_SENSOR  (2)
+#define PIC_BUFFER_NUM_SELF2_SENSOR  (6)
 #define PIC_BUFFER_SIZE_SELF2_SENSOR (6 * 1024 * 1024)     // 2MPixel@4:4:4  => 6MByte
 #define PIC_BUFFER_NUM_MCMWR_SENSOR  (6)
 #define PIC_BUFFER_SIZE_MCMWR_SENSOR (8 * 1024 * 1024)
@@ -106,7 +97,7 @@ DCT_ASSERT_STATIC(((PIC_BUFFER_NUM_MAIN_SENSOR*PIC_BUFFER_SIZE_MAIN_SENSOR) + (P
 #define PIC_BUFFER_SIZE_SELF_SENSOR_IMGSTAB ( 6 * 1024 * 1024 )    // ISI_RES_4416_3312 => 14MPixel@12bit => 28MByte
 
 DCT_ASSERT_STATIC(((PIC_BUFFER_NUM_MAIN_SENSOR*PIC_BUFFER_SIZE_MAIN_SENSOR) + (PIC_BUFFER_NUM_SELF1_SENSOR*PIC_BUFFER_SIZE_SELF1_SENSOR) ) < PIC_BUFFER_MEM_SIZE_MAX);
-#endif
+#endif // ISP_SINGLE_DOM_OVER_MP
 
 typedef enum _BUFF_MODE_ {
     BUFF_MODE_INVALID     = 0,
@@ -119,6 +110,39 @@ typedef enum _BUFF_MODE_ {
 
 /*Typedef HAL handle*/
 typedef void *HalHandle_t;
+
+/*****************************************************************************/
+/**
+ * @brief   Enumeration type to specify the swap control.
+ *
+ * @note    This enumeration type is used to specify the swap control.
+ *
+ *****************************************************************************/
+typedef enum PicBufMiSwap_e {
+    PIC_BUF_MI_SWAP_INVALID = -1,       /**< lower border (only for an internal evaluation) */
+    PIC_BUF_MI_NO_SWAP = 0,             /**< The value of no swap. */
+    PIC_BUF_MI_SWAP_BYTES = 1,          /**< The value of swap bytes. */
+    PIC_BUF_MI_SWAP_WORDS = 2,          /**< The value of swap words. */
+    PIC_BUF_MI_SWAP_DOUBLE_WORDS = 4,   /**< The value of swap double words. */
+    PIC_BUF_MI_SWAP_FOUR_WORDS = 8,     /**< The value of swap four words. */
+    PIC_BUF_MI_SWAP_MAX                 /**< upper border (only for an internal evaluation) */
+} PicBufMiDataSwap_t;
+
+/*****************************************************************************/
+/**
+ * @brief   Union type to specify the raw and yuv swap control.
+ *
+ * @note    This union type is used to specify the raw and yuv swap control.
+ *
+ *****************************************************************************/
+typedef union PicBufMiSwap_u {
+    struct {
+        PicBufMiDataSwap_t y;
+        PicBufMiDataSwap_t u;
+        PicBufMiDataSwap_t v;
+    } yuvSwap;
+    PicBufMiDataSwap_t rawSwap;
+} PicBufMiSwap_t;
 
 typedef struct _BufIdentity_ {
     uint32_t buff_size;     // common: biffer size
@@ -137,6 +161,7 @@ typedef struct _BufIdentity_ {
     uint8_t bitWidth;       // common: bit width enmu
     uint8_t * bufferInstance;
     uint32_t buff_address;  // common: buffer physical address
+    PicBufMiSwap_t swap;    // common: swap info
 } BufIdentity;
 
 typedef void* BufMgmtHandle_t;
@@ -177,9 +202,42 @@ typedef enum PicBufType_e {
     PIC_BUF_TYPE_YCbCr32  = 22,
     // PIC_BUF_TYPE_YCbCr400 = 0x33, // "Black&White"
     PIC_BUF_TYPE_RGB32    = 23,
+    PIC_BUF_TYPE_DPCC32    = 24,
     _PIC_BUF_TYPE_DUMMY_
 } PicBufType_t;
 
+/*****************************************************************************/
+/**
+ * @brief   RDCE bit depth enum.
+ *
+ * @note    This is a enum of RDCE bit depth.
+ *
+ *****************************************************************************/
+typedef enum PicBufRdceType_e {
+    PIC_BUF_RDCE_BIT_DEPTH_INVALID = -1,
+    PIC_BUF_RDCE_BIT_DEPTH_RAW8,
+    PIC_BUF_RDCE_BIT_DEPTH_RAW10,
+    PIC_BUF_RDCE_BIT_DEPTH_RAW12,
+    PIC_BUF_RDCE_BIT_DEPTH_RAW14,
+    PIC_BUF_RDCE_BIT_DEPTH_RAW16,
+    PIC_BUF_RDCE_BIT_DEPTH_MAX,
+}PicBufRdceType_t;
+
+/*****************************************************************************/
+/**
+ * @brief   RDCE bayer pattern enum.
+ *
+ * @note    This is a enum of RDCE bayer pattern.
+ *
+ *****************************************************************************/
+typedef enum PicBufRdceBayerPat_e {
+    PIC_BUF_RDCE_BPT_INVALID = -1,
+    PIC_BUF_RDCE_BPT_RGGB,         /** < Bayer pattern RGGB. */
+    PIC_BUF_RDCE_BPT_GRBG,         /** < Bayer pattern GRBG. */
+    PIC_BUF_RDCE_BPT_GBRG,         /** < Bayer pattern GBRG. */
+    PIC_BUF_RDCE_BPT_BGGR,         /** < Bayer pattern BGGR. */
+    PIC_BUF_RDCE_BPT_MAX,
+} PicBufRdceBayerPat_t;
 
 /*****************************************************************************/
 /**
@@ -266,7 +324,19 @@ typedef enum PicBufYuvOrder_e
     PIC_BUF_CHANNEL_ORDER_UVY = 4,  /** 4: UVY or GBR */
     PIC_BUF_CHANNEL_ORDER_VUY = 5,  /** 5: VUY or BGR */
     PIC_BUF_CHANNEL_ORDER_MAX = 6,
-}PicBufYuvOrder_t;
+} PicBufYuvOrder_t;
+
+/*****************************************************************************/
+/**
+ * @brief   Picture buffer compress lossless/lossy  mode
+ *
+ *****************************************************************************/
+typedef enum PicBufLossMode_e {
+    PIC_BUF_LOSS_MODE_INVALID = -1,  /**< Invalid loss mode*/
+    PIC_BUF_LOSS_LESS_MODE,    	  /**< lossless mode */
+    PIC_BUF_LOSSY_MODE,   			  /**< lossy mode */
+    PIC_BUF_LOSS_MODE_MAX
+} PicBufLossMode_t;
 
 
 /*******************************************************************************
@@ -335,19 +405,7 @@ typedef struct PicBufPlane_s {
     uint8_t     bitWidth;
 } PicBufPlane_t;
 
-/*****************************************************************************/
-/**
- *          PicBufExpoInfo_t
- *
- * @brief   image expo info.
- *
- *****************************************************************************/
-typedef struct PicBufExpoInfo_s {
-    uint16_t vsTime;
-    uint16_t sTime;
-    uint16_t mTime;
-    uint16_t lTime;
-} PicBufExpoInfo_t;
+#define PIC_EXP_NUM_MAX 4 /**< Maximum exposure number of image*/
 
 /*****************************************************************************/
 /**
@@ -358,8 +416,20 @@ typedef struct PicBufExpoInfo_s {
  *****************************************************************************/
 typedef struct PicBufMetadataInfo_s {
     uint64_t frameCount;
-    PicBufExpoInfo_t expoInfo;
-
+    float sensorGain[PIC_EXP_NUM_MAX];
+        /**< In linear mode or native HDR mode:\n sensorGain[0] is image gain\n
+         In stitch HDR mode:\n
+            sensorGain[0]: L image gain\n
+            sensorGain[1]: S image gain\n
+            sensorGain[2]: VS image gain\n
+            sensorGain[3]: ES image gain */
+    float expoInfo[PIC_EXP_NUM_MAX];  //us
+        /**< In linear mode or native HDR mode:\n expoInfo[0] is image integration time\n
+         In stitch HDR mode:\n
+         expoInfo[0]: L image integration time\n
+         expoInfo[1]: S image integration time\n
+         expoInfo[2]: VS image integration time\n
+         expoInfo[3]: ES image integration time */
 } PicBufMetadataInfo_t;
 
 #define METADATA_MAX_NUM 3
@@ -380,6 +450,22 @@ typedef struct MetadataBufInfo_s {
 
 /*****************************************************************************/
 /**
+ *          RDC compress information
+ *
+ * @brief  compress information for buffer decompress.
+ *
+ *****************************************************************************/
+typedef struct PicBufCmpInfo_e {
+    bool_t           compressed;        /**<buffer compressed*/
+    PicBufLossMode_t  lossMode       ;   /**<loss mode*/
+    PicBufRdceType_t  bitdepth;        /**<bit depth*/
+    short            targetSize;        /**<target size */
+    short           bitThresh;
+    PicBufRdceBayerPat_t bayerPattern;
+} PicBufCmpInfo_t;
+
+/*****************************************************************************/
+/**
  *          PicBufMetaData_t
  *
  * @brief   All the meta data one needs to know about an image buffer.
@@ -394,9 +480,10 @@ typedef struct PicBufMetaData_s {
                                         // Note: depending on the 3D format in use, the primary buffer holds left image data while the secondary buffer holds right or depth information.
                                         //       Certain 3D formats require further buffers, in which case the 3D chain consists of more than two descriptors.
   //  BufIdentity             buf_id;
-
+    PicBufCmpInfo_t        compressInfo; /**< comperss information for decompress*/
     PicBufMetadataInfo_t    metaInfo;
     PicBufYuvOrder_t        yuvOrder;
+    PicBufMiSwap_t          swap;       // MI output data swap
     union Data_u {                      // the type and layout dependent meta data
         struct data_s {      // DATA
             uint8_t    *pData;

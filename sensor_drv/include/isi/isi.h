@@ -1,28 +1,28 @@
 /****************************************************************************
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2022 Vivante Corporation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
- ****************************************************************************/
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 /* VeriSilicon 2022 */
 
@@ -52,7 +52,6 @@
 #include <isi/isi_vvsensor.h>
 #include <isi/isi_otp.h>
 #include <isi/isi_metadata.h>
-#include <hal/hal_api.h>
 
 #define ISI_LINEAR_PARAS               0
 #define ISI_DUAL_EXP_L_PARAS           0
@@ -64,6 +63,8 @@
 #define ISI_QUAD_EXP_S_PARAS           1
 #define ISI_QUAD_EXP_VS_PARAS          2
 #define ISI_QUAD_EXP_VVS_PARAS         3
+
+#define ISI_EXP_NUM_MAX 4
 
 #ifdef __cplusplus
 extern "C"
@@ -89,9 +90,15 @@ typedef struct IsiCaps_s {
     uint32_t mode;                      /**< supported operating modes */
     uint32_t bayerPattern;              /**< bayer pattern */
     IsiResolution_t resolution;         /**< supported resolutions */
-    uint32_t mipiMode;
-    uint32_t mipiLanes;
     uint32_t vinType;
+
+	uint32_t mipiMode;	  /**< vinType: ISI_ITF_TYPE_MIPI  bitWidth*/
+	uint32_t mipiLanes;   /**< vinType: ISI_ITF_TYPE_MIPI  */
+
+	IsiSyncSignalPolarity_t hSyncPol;	 /**< vinType: ISI_ITF_TYPE_DVP/ISI_ITF_TYPE_BT601  */
+	IsiSyncSignalPolarity_t vSyncPol;	 /**< vinType: ISI_ITF_TYPE_DVP/ISI_ITF_TYPE_BT601  */
+	IsiSampleEdgePolarity_t sampleEdge;  /**< vinType: ISI_ITF_TYPE_DVP/ISI_ITF_TYPE_BT601  */
+	IsiSensorCCIRSequence_t ccirSeq;     /**< vinType: ISI_ITF_TYPE_BT601*/
 #ifdef DOLPHIN
 	uint32_t dphyFreq;
 #endif
@@ -134,6 +141,7 @@ typedef struct IsiFocusPDInfo_s {
     uint8_t  pdShiftMark[32];
     uint8_t  pdFocalHeigh;
     uint8_t  pdFocalWidth;
+    uint8_t  pdDistance;
     int      pdFocal[48];
 } IsiFocusPDInfo_t;
 
@@ -172,26 +180,19 @@ typedef struct IsiSensorInstanceConfig_s
 } IsiSensorInstanceConfig_t;
 
 
-typedef struct IsiSensorContext_s
-{
-    HalHandle_t    halHandle;           /**< Handle of HAL session to use. */
-    HalI2cHandle_t halI2cHandle;        /**< Handle of HAL I2C session to use. */
-    IsiSensor_t    *pSensor;            /**< point to the sensor device */
-} IsiSensorContext_t;
-
 
 typedef struct IsiAeBaseInfo_s
 {
-    float aecCurGain;
-    float aecCurIntTime;
+    float32_t aecCurGain;
+    float32_t aecCurIntTime;
     IsiSensorGain_t curGain; /*gain[0]: Long gain; gain[1]: Short gain; gain[2]: VS gain; gain[3]: VVS gain;*/
     IsiSensorIntTime_t curIntTime; /*IntTime[0]: Long gain; gain[1]: Short gain; gain[2]: VS gain; gain[3]: VVS gain;*/
-    float aecGainStep;
-    float aecIntTimeStep;
+    float32_t aecGainStep;
+    float32_t aecIntTimeStep;
     IsiSensorStitchingMode_t stitchingMode;
     IsiSensorNativeMode_t nativeMode;
-    float nativeHdrRatio[3]; /* 0: L/S, 1: S/VS, 2:VS/VVS */
-    float conversionGainDCG;
+    float32_t nativeHdrRatio[3]; /* 0: L/S, 1: S/VS, 2:VS/VVS */
+    float32_t conversionGainDCG;
 
     IsiRange_t longGain, shortGain, vsGain, vvsGain, gain; /* total gain*/
     IsiRange_t longIntTime, shortIntTime, vsIntTime, vvsIntTime, intTime; /* total integrationtime */
@@ -200,6 +201,21 @@ typedef struct IsiAeBaseInfo_s
     IsiGainInfo_t dLongGain, dShortGain, dVSGain, dVVSGain, dGain; /* digital gain of each exp*/
 } IsiAeBaseInfo_t;
 
+
+typedef struct IsiExpDecomposeParam_s
+{
+	float32_t gain;
+	float32_t integrationTime;
+	float32_t ispRatio[ISI_EXP_NUM_MAX-1];
+}IsiExpDecomposeParam_t;
+
+typedef struct IsiExpDecomposeResult_s
+{
+	float32_t sensorAgain[ISI_EXP_NUM_MAX];
+	float32_t sensorDgain[ISI_EXP_NUM_MAX];
+	float32_t sensorExpTime[ISI_EXP_NUM_MAX];
+	float32_t sensorRatio[ISI_EXP_NUM_MAX-1];
+}IsiExpDecomposeResult_t;
 
 /*****************************************************************************/
 /**
@@ -439,11 +455,35 @@ RESULT IsiSetStreamingIss
  *****************************************************************************/
 RESULT IsiGainExecuteIss
 (
-    float          totalGain,
+    float32_t          totalGain,
     IsiGainInfo_t  aGain,
     IsiGainInfo_t  dGain,
-    float          *splitAgain,
-    float          *splitDgain
+    float32_t          *splitAgain,
+    float32_t          *splitDgain
+);
+
+
+/*****************************************************************************/
+/**
+ *          IsiExpDecomposeControl
+ *
+ * @brief   Excute exposure decompose in sensor driver.
+ *
+ * @param   IsiExpDecomposeParam_t      the input parameters for decomposing exposure.
+ * @param   IsiExpDecomposeResult_t     the result after decomposing exposure.
+ *
+ * @return  Return the result of the function call.
+ * @retval  RET_SUCCESS
+ * @retval  RET_WRONG_HANDLE
+ * @retval  RET_NULL_POINTER
+ * @retval  RET_WRONG_STATE
+ *
+ *****************************************************************************/
+RESULT IsiExpDecomposeControl
+(
+	IsiSensorHandle_t handle,
+	const IsiExpDecomposeParam_t *pDecParam,
+	IsiExpDecomposeResult_t *pDecResult
 );
 
 

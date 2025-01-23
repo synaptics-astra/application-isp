@@ -52,7 +52,7 @@ add_custom_target(${module}.drv
 
 add_custom_target(${module}.init
                   ALL
-                  COMMAND ${CMAKE_COMMAND} -E copy ${DRIVER_TOP_DIRECTORY}/isi/sensor_drv/IMX290/source/IMX290_mipi4lane_1080p_init.txt  ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/IMX290_mipi4lane_1080p_init.txt
+                  COMMAND ${CMAKE_COMMAND} -E copy ${UNITS_TOP_DIRECTORY}/isi/sensor_drv/IMX290/source/IMX290_mipi4lane_1080p_init.txt  ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/IMX290_mipi4lane_1080p_init.txt
                   DEPENDS ${module}_shared
                   COMMENT "Copying ${module} init files"
                   )
@@ -64,7 +64,7 @@ install(TARGETS ${module}_shared
         )
 
 # create common targets for this module
-include(${DRIVER_TOP_DIRECTORY}/targets.cmake)
+include(${UNITS_TOP_DIRECTORY}/targets.cmake)
 
 # create calib data targets
 add_subdirectory(calib)

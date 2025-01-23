@@ -1,14 +1,29 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
+
 /**
  * @file OV2775_priv.h
  *
@@ -34,7 +49,7 @@
 #include <hal/hal_api.h>
 #include <isi/isi_common.h>
 #include <isi/isi_vvsensor.h>
-
+#include "isi_priv.h"
 
 
 #ifdef __cplusplus
@@ -55,7 +70,7 @@ typedef struct OV2775_Context_s
     bool_t                    testPattern;            /**< flags that sensor is streaming test-pattern */
     bool_t                    isAfpsRun;              /**< if true, just do anything required for Afps parameter calculation, but DON'T access SensorHW! */
 
-    float                     oneLineExpTime;
+    float32_t                     oneLineExpTime;
     uint16_t                  maxIntegrationLine;
     uint16_t                  minIntegrationLine;
     uint16_t                  minVSIntegrationLine;
@@ -64,27 +79,27 @@ typedef struct OV2775_Context_s
     uint16_t                  frameLengthLines;       /**< frame line length */
     uint16_t                  curFrameLengthLines;
 
-    float                     aecMinGain;
-    float                     aecMaxGain;
-    float                     aecMinIntegrationTime;
-    float                     aecMaxIntegrationTime;
-    float                     aecMinVSIntegrationTime;
-    float                     aecMaxVSIntegrationTime;
-    float                     aecIntegrationTimeIncrement; /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
-    float                     aecGainIncrement;            /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
+    float32_t                     aecMinGain;
+    float32_t                     aecMaxGain;
+    float32_t                     aecMinIntegrationTime;
+    float32_t                     aecMaxIntegrationTime;
+    float32_t                     aecMinVSIntegrationTime;
+    float32_t                     aecMaxVSIntegrationTime;
+    float32_t                     aecIntegrationTimeIncrement; /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
+    float32_t                     aecGainIncrement;            /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
 
-    float                     aecCurLongIntegrationTime;   
-    float                     aecCurIntegrationTime;
-    float                     aecCurVSIntegrationTime;
-    float                     aecCurLongGain;
-    float                     aecCurGain;    
-    float                     aecCurVSGain; 
-    float                     curLongAgain;
-    float                     curLongDgain;   
-    float                     curAgain;
-    float                     curDgain;
-    float                     curVSAgain;
-    float                     curVSDgain;
+    float32_t                     aecCurLongIntegrationTime;   
+    float32_t                     aecCurIntegrationTime;
+    float32_t                     aecCurVSIntegrationTime;
+    float32_t                     aecCurLongGain;
+    float32_t                     aecCurGain;    
+    float32_t                     aecCurVSGain; 
+    float32_t                     curLongAgain;
+    float32_t                     curLongDgain;   
+    float32_t                     curAgain;
+    float32_t                     curDgain;
+    float32_t                     curVSAgain;
+    float32_t                     curVSDgain;
 
     bool                      groupHold;
     uint32_t                  oldGain;
@@ -113,8 +128,8 @@ static RESULT OV2775_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *p
 static RESULT OV2775_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorDGain);
 static RESULT OV2775_IsiGetIntTimeIss(IsiSensorHandle_t handle, IsiSensorIntTime_t *pSensorIntTime);
 static RESULT OV2775_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime_t *pSensorIntTime);
-static RESULT OV2775_SetIntTime(IsiSensorHandle_t handle, float newIntegrationTime);
-static RESULT OV2775_SetVSIntTime(IsiSensorHandle_t handle, float newIntegrationTime);
+static RESULT OV2775_SetIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime);
+static RESULT OV2775_SetVSIntTime(IsiSensorHandle_t handle, float32_t newIntegrationTime);
 
 static uint16_t OV2775_mipi4lane_1080p_init[][2] =
 {
@@ -1916,14 +1931,14 @@ static uint16_t OV2775_mipi4lane_1080p_init[][2] =
     {0x30b1, 0xde},
     {0x30b2, 0x04},
     {0x30b3, 0x66},
-    {0x30b6, 0x00},
-    {0x30b7, 0x40},//0x115
+    {0x30b6, 0x02},
+    {0x30b7, 0x00},//0x115
     {0x3196, 0x00},
     {0x3197, 0x0a},
     {0x3195, 0x29},
     {0x315a, 0x02},
     {0x315b, 0x00},
-    {0x30bb, 0x40},
+    {0x30bb, 0x00},
     {0x3250, 0xf7},
     {0x30a8, 0x00},
     {0x30a9, 0x05},
@@ -3735,20 +3750,20 @@ static uint16_t OV2775_mipi4lane_1080p_3dol_init[][2] =
     {0x30b1, 0x99},
     {0x30b2, 0x06},
     {0x30b3, 0x80},
-    {0x30b6, 0x00},
-    {0x30b7, 0x80},//0x200
+    {0x30b6, 0x01},
+    {0x30b7, 0x00},//0x0200
     {0x30b8, 0x00},
-    {0x30b9, 0x08},//0x0080
+    {0x30b9, 0x40},//0x0080
     {0x3196, 0x00},
     {0x3197, 0x0a},
     {0x3195, 0x2e},
-    {0x30bb, 0x15},//0x00
+    {0x30bb, 0x00},
     {0x315a, 0x01},
-    {0x315b, 0x80},//0x005c
+    {0x315b, 0x00},
     {0x315c, 0x01},
-    {0x315d, 0x80},//0x100
-    {0x315e, 0x01},
-    {0x315f, 0x80},//0x100
+    {0x315d, 0x00},
+    {0x315e, 0x02},
+    {0x315f, 0x00},
     {0x3250, 0x35},
 };
 

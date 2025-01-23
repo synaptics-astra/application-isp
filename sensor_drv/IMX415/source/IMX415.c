@@ -634,8 +634,7 @@ RESULT IMX415_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensorD
     }
 
     pIMX415Ctx->curDgain = 0;
-    TRACE(IMX415_DEBUG, "Set Dgain %d NewGain %f\n",
-         dgain, pSensorDGain->gain[ISI_LINEAR_PARAS]);
+    TRACE(IMX415_DEBUG, "Set NewGain %f\n", pSensorDGain->gain[ISI_LINEAR_PARAS]);
 
     TRACE(IMX415_DEBUG, "%s: (exit)\n", __func__);
     return (result);

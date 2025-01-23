@@ -1,14 +1,29 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
+
 /**
  * @file AR0820_priv.h
  *
@@ -36,12 +51,15 @@
 #include <isi/isi_common.h>
 #include <isi/isi_vvsensor.h>
 #include <isi/isi_metadata.h>
+#include "isi_priv.h"
 
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+#define AR0820_EXPSOURE_NUM_MAX 4
 
 typedef struct AR0820_Context_s
 {
@@ -56,29 +74,29 @@ typedef struct AR0820_Context_s
     bool_t                 testPattern;            /**< flags that sensor is streaming test-pattern */
     bool_t                 isAfpsRun;              /**< if true, just do anything required for Afps parameter calculation, but DON'T access SensorHW! */
 
-    float                  oneLineExpTime;
+    float32_t              oneLineExpTime;
     uint16_t               maxIntegrationLine;
     uint16_t               minIntegrationLine;
     uint16_t               frameLengthLines;       /**< frame line length */
     uint16_t               curFrameLengthLines;
 
-    float                  aecMinGain;
-    float                  aecMaxGain;
-    float                  aecMinIntegrationTime;
-    float                  aecMaxIntegrationTime;
-    float                  aecIntegrationTimeIncrement; /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
-    float                  aecGainIncrement;            /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
+    float32_t                  aecMinGain;
+    float32_t                  aecMaxGain;
+    float32_t                  aecMinIntegrationTime;
+    float32_t                  aecMaxIntegrationTime;
+    float32_t                  aecIntegrationTimeIncrement; /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
+    float32_t                  aecGainIncrement;            /**< _smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application) */
 
-    float                  aecCurIntegrationTime;
-    float                  aecCurVSIntegrationTime;
-    float                  aecCurLongIntegrationTime;
-    float                  aecCurGain;
-    float                  aecCurVSGain;
-    float                  aecCurLongGain;
-    float                  curAgain;
-    float                  curDgain;
-    float                  curVSAgain;
-    float                  curVSDgain;
+    float32_t                  aecCurIntegrationTime;
+    float32_t                  aecCurVSIntegrationTime;
+    float32_t                  aecCurLongIntegrationTime;
+    float32_t                  aecCurGain;
+    float32_t                  aecCurVSGain;
+    float32_t                  aecCurLongGain;
+    float32_t                  curAgain;
+    float32_t                  curDgain;
+    float32_t                  curVSAgain;
+    float32_t                  curVSDgain;
 
     bool                   groupHold;
     uint32_t               oldGain;
@@ -90,7 +108,7 @@ typedef struct AR0820_Context_s
     IsiGainInfo_t          dVSGain;
 
     IsiSensorWb_t          sensorWb;
-
+	float32_t              nativeHdrRatio[AR0820_EXPSOURE_NUM_MAX-1];
     IsiMetadataAttr_t      metaEnable;
 } AR0820_Context_t;
 
@@ -432,7 +450,7 @@ static uint16_t AR0820_mipi2lane_1080p_linear_init[][2] =
     {0x3032, 0x0000},
     {0x31AC, 0x0C0C},
     {0x300A, 0x0910},
-    {0x300C, 0x2028},
+    {0x300C, 0x2100},
     {0x3012, 0x0100},//0x0060
     {0x3212, 0x0000},
     {0x3216, 0x0000},
@@ -3148,6 +3166,7 @@ static uint16_t AR0820_mipi2lane_4K_native4dol_VI200_metadata_init[][2] =
     {0x37AC, 0x0000},
     {0x3C06, 0x0C8C},
     {0x3C08, 0x010C},
+    {0x30b8, 0x0007},//enable temperature
     {0x34DC, 0x003D},
     {0x34DE, 0x2C36},
     {0x34E0, 0x0022},

@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -24,7 +38,7 @@ CREATE_TRACER(OS04a10_DEBUG,     "OS04a10: ", INFO, 0);
 CREATE_TRACER(OS04a10_REG_INFO , "OS04a10: ", INFO, 1);
 CREATE_TRACER(OS04a10_REG_DEBUG, "OS04a10: ", INFO, 1);
 
-#define OS04a10_MIN_GAIN_STEP    (1.0f/128.0f)  /**< min gain step size used by GUI (hardware min = 1/16; 1/16..32/16 depending on actual gain) */
+#define OS04a10_MIN_GAIN_STEP    (1.0f/16.0f)  /**< min gain step size used by GUI (hardware min = 1/16; 1/16..32/16 depending on actual gain) */
 
 /*****************************************************************************
  *Sensor Info
@@ -48,6 +62,71 @@ static IsiSensorMode_t pos04a10_mode_info[] = {
         .fps       = 12 * ISI_FPS_QUANTIZE,
         .hdrMode  = ISI_SENSOR_MODE_LINEAR,
         .bitWidth = 12,
+        .bayerPattern = ISI_BPAT_BGGR,
+        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+    },
+    {
+        .index     = 1,
+        .size      = {
+            .boundsWidth  = 1920,
+            .boundsHeight = 1080,
+            .top           = 0,
+            .left          = 0,
+            .width         = 1920,
+            .height        = 1080,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 2,
+            .gainDelayFrame = 2,
+        },
+        .fps       = 22 * ISI_FPS_QUANTIZE,
+        .hdrMode  = ISI_SENSOR_MODE_LINEAR,
+        .bitWidth = 12,
+        .bayerPattern = ISI_BPAT_BGGR,
+        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+    },
+    {
+        .index     = 2,
+        .size      = {
+            .boundsWidth  = 1920,
+            .boundsHeight = 1080,
+            .top           = 0,
+            .left          = 0,
+            .width         = 1920,
+            .height        = 1080,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 2,
+            .gainDelayFrame = 2,
+        },
+        .fps       = 13.6 * ISI_FPS_QUANTIZE,
+        .hdrMode  = ISI_SENSOR_MODE_HDR_NATIVE,
+        .nativeMode = ISI_SENSOR_NATIVE_DCG,
+        .bitWidth = 16,
+        .bayerPattern = ISI_BPAT_BGGR,
+        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
+    },
+    {
+        .index     = 3,
+        .size      = {
+            .boundsWidth  = 1920,
+            .boundsHeight = 1080,
+            .top           = 0,
+            .left          = 0,
+            .width         = 1920,
+            .height        = 1080,
+        },
+        .aeInfo    = {
+            .intTimeDelayFrame = 2,
+            .gainDelayFrame = 2,
+        },
+        .fps       = 25 * ISI_FPS_QUANTIZE,
+        .hdrMode  = ISI_SENSOR_MODE_HDR_NATIVE,
+        .nativeMode = ISI_SENSOR_NATIVE_DCG,
+        .bitWidth = 12,
+        .compress.enable = 1,
+        .compress.xBit  = 16,
+        .compress.yBit  = 12,
         .bayerPattern = ISI_BPAT_BGGR,
         .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
     },
@@ -155,6 +234,8 @@ static RESULT OS04a10_IsiGetCapsIss(IsiSensorHandle_t handle, IsiCaps_t *pCaps)
         pCaps->mipiMode      = ISI_FORMAT_RAW_10;
     } else if (pCaps->bitWidth == 12) {
         pCaps->mipiMode      = ISI_FORMAT_RAW_12;
+    } else if (pCaps->bitWidth == 16) {
+        pCaps->mipiMode      = ISI_FORMAT_RAW_16;
     } else {
         pCaps->mipiMode      = ISI_MIPI_OFF;
     }
@@ -168,7 +249,7 @@ static RESULT OS04a10_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
     RESULT result = RET_SUCCESS;
     TRACE(OS04a10_INFO, "%s (enter)\n", __func__);
 
-    OS04a10_Context_t *pOS04a10Ctx = (OS04a10_Context_t *) malloc(sizeof(OS04a10_Context_t));
+    OS04a10_Context_t *pOS04a10Ctx = (OS04a10_Context_t *) osMalloc(sizeof(OS04a10_Context_t));
     if (!pOS04a10Ctx) {
         TRACE(OS04a10_ERROR, "%s: Can't allocate os04a10 context\n",__func__);
         return (RET_OUTOFMEM);
@@ -199,7 +280,7 @@ static RESULT OS04a10_IsiCreateIss(IsiSensorInstanceConfig_t *pConfig, IsiSensor
 
     result = HalAddRef(pOS04a10Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
     if (result != RET_SUCCESS) {
-        free(pOS04a10Ctx);
+        osFree(pOS04a10Ctx);
         return (result);
     }
 
@@ -213,7 +294,7 @@ static RESULT OS04a10_AecSetModeParameters(IsiSensorHandle_t handle, OS04a10_Con
 {
     RESULT result = RET_SUCCESS;
     uint16_t value = 0, regVal = 0;
-    float again = 0, dgain = 0;
+    float32_t again = 0, dgain = 0;
     TRACE(OS04a10_INFO, "%s%s: (enter)\n", __func__, pOS04a10Ctx->isAfpsRun ? "(AFPS)" : "");
 
     pOS04a10Ctx->aecIntegrationTimeIncrement = pOS04a10Ctx->oneLineExpTime;
@@ -228,11 +309,13 @@ static RESULT OS04a10_AecSetModeParameters(IsiSensorHandle_t handle, OS04a10_Con
     pOS04a10Ctx->oldGain               = 0;
     pOS04a10Ctx->oldIntegrationTime    = 0;
 
+    //HCG linear, DCG based on HCG
     OS04a10_IsiReadRegIss(handle, 0x3501, &value);
     regVal = value << 8;
     OS04a10_IsiReadRegIss(handle, 0x3502, &value);
     regVal = regVal | (value & 0xff);
     pOS04a10Ctx->aecCurIntegrationTime = regVal * pOS04a10Ctx->oneLineExpTime;
+    pOS04a10Ctx->aecCurLongIntegrationTime = regVal * pOS04a10Ctx->oneLineExpTime;
 
     OS04a10_IsiReadRegIss(handle, 0x3508, &value);
     regVal = (value & 0x1f) << 4;
@@ -248,6 +331,7 @@ static RESULT OS04a10_AecSetModeParameters(IsiSensorHandle_t handle, OS04a10_Con
     regVal = regVal | ((value & 0xc0) >> 6);
     dgain = regVal/1024.0f;
     pOS04a10Ctx->aecCurGain            = again * dgain;
+    pOS04a10Ctx->aecCurLongGain        = again * dgain;
 
     TRACE(OS04a10_INFO, "%s%s: (exit)\n", __func__,pOS04a10Ctx->isAfpsRun ? "(AFPS)" : "");
 
@@ -286,6 +370,21 @@ static RESULT OS04a10_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
                     OS04a10_IsiWriteRegIss(handle, OS04a10_mipi4lane_2688_1520_init[i][0], OS04a10_mipi4lane_2688_1520_init[i][1]);
                 }
                 break;
+            case 1:
+                for (int i = 0; i<sizeof(OS04a10_mipi4lane_1080p_init) / sizeof(OS04a10_mipi4lane_1080p_init[0]); i++) {
+                    OS04a10_IsiWriteRegIss(handle, OS04a10_mipi4lane_1080p_init[i][0], OS04a10_mipi4lane_1080p_init[i][1]);
+                }
+                break;
+            case 2:
+                for (int i = 0; i<sizeof(OS04a10_mipi4lane_1080p_DCG_combine_16b_init) / sizeof(OS04a10_mipi4lane_1080p_DCG_combine_16b_init[0]); i++) {
+                    OS04a10_IsiWriteRegIss(handle, OS04a10_mipi4lane_1080p_DCG_combine_16b_init[i][0], OS04a10_mipi4lane_1080p_DCG_combine_16b_init[i][1]);
+                }
+                break;
+            case 3:
+                for (int i = 0; i<sizeof(OS04a10_mipi4lane_1080p_DCG_combine_12b_init) / sizeof(OS04a10_mipi4lane_1080p_DCG_combine_12b_init[0]); i++) {
+                    OS04a10_IsiWriteRegIss(handle, OS04a10_mipi4lane_1080p_DCG_combine_12b_init[i][0], OS04a10_mipi4lane_1080p_DCG_combine_12b_init[i][1]);
+                }
+                break;
             default:
                 TRACE(OS04a10_INFO, "%s:not support sensor mode %d\n", __func__,pOS04a10Ctx->sensorMode.index);
                 return RET_NOTSUPP;
@@ -306,10 +405,55 @@ static RESULT OS04a10_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             pOS04a10Ctx->curFrameLengthLines = pOS04a10Ctx->frameLengthLines;
             pOS04a10Ctx->maxIntegrationLine  = pOS04a10Ctx->curFrameLengthLines -8 ;
             pOS04a10Ctx->minIntegrationLine  = 2;
-            pOS04a10Ctx->aecMaxGain          = 255.84;
+            pOS04a10Ctx->aecMaxGain          = 255.6801;
             pOS04a10Ctx->aecMinGain          = 1.0;
             pOS04a10Ctx->aGain.min           = 1.0;
-            pOS04a10Ctx->aGain.max           = 16.0;
+            pOS04a10Ctx->aGain.max           = 15.99;
+            pOS04a10Ctx->aGain.step          = (1.0f/16.0f);
+            pOS04a10Ctx->dGain.min           = 1.0;
+            pOS04a10Ctx->dGain.max           = 15.99;
+            pOS04a10Ctx->dGain.step          = (1.0f/1024.0f);
+            break;
+        case 1:
+            pOS04a10Ctx->oneLineExpTime      = 0.000034;
+            pOS04a10Ctx->frameLengthLines    = 0x54b;
+            pOS04a10Ctx->curFrameLengthLines = pOS04a10Ctx->frameLengthLines;
+            pOS04a10Ctx->maxIntegrationLine  = pOS04a10Ctx->curFrameLengthLines -8 ;
+            pOS04a10Ctx->minIntegrationLine  = 2;
+            pOS04a10Ctx->aecMaxGain          = 255.6801;
+            pOS04a10Ctx->aecMinGain          = 1.0;
+            pOS04a10Ctx->aGain.min           = 1.0;
+            pOS04a10Ctx->aGain.max           = 15.99;
+            pOS04a10Ctx->aGain.step          = (1.0f/16.0f);
+            pOS04a10Ctx->dGain.min           = 1.0;
+            pOS04a10Ctx->dGain.max           = 15.99;
+            pOS04a10Ctx->dGain.step          = (1.0f/1024.0f);
+            break;
+        case 2:
+            pOS04a10Ctx->oneLineExpTime      = 0.00006;
+            pOS04a10Ctx->frameLengthLines    = 0x4c3;
+            pOS04a10Ctx->curFrameLengthLines = pOS04a10Ctx->frameLengthLines;
+            pOS04a10Ctx->maxIntegrationLine  = pOS04a10Ctx->curFrameLengthLines -8 ;
+            pOS04a10Ctx->minIntegrationLine  = 2;
+            pOS04a10Ctx->aecMaxGain          = 255.6801;
+            pOS04a10Ctx->aecMinGain          = 1.0;
+            pOS04a10Ctx->aGain.min           = 1.0;
+            pOS04a10Ctx->aGain.max           = 15.99;
+            pOS04a10Ctx->aGain.step          = (1.0f/16.0f);
+            pOS04a10Ctx->dGain.min           = 1.0;
+            pOS04a10Ctx->dGain.max           = 15.99;
+            pOS04a10Ctx->dGain.step          = (1.0f/1024.0f);
+            break;
+        case 3:
+            pOS04a10Ctx->oneLineExpTime      = 0.000034;
+            pOS04a10Ctx->frameLengthLines    = 0x4ab;
+            pOS04a10Ctx->curFrameLengthLines = pOS04a10Ctx->frameLengthLines;
+            pOS04a10Ctx->maxIntegrationLine  = pOS04a10Ctx->curFrameLengthLines -8 ;
+            pOS04a10Ctx->minIntegrationLine  = 2;
+            pOS04a10Ctx->aecMaxGain          = 255.6801;
+            pOS04a10Ctx->aecMinGain          = 1.0;
+            pOS04a10Ctx->aGain.min           = 1.0;
+            pOS04a10Ctx->aGain.max           = 15.99;
             pOS04a10Ctx->aGain.step          = (1.0f/16.0f);
             pOS04a10Ctx->dGain.min           = 1.0;
             pOS04a10Ctx->dGain.max           = 15.99;
@@ -366,7 +510,7 @@ static RESULT OS04a10_IsiReleaseIss(IsiSensorHandle_t handle)
     (void)HalDelRef(pOS04a10Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
 
     MEMSET(pOS04a10Ctx, 0, sizeof(OS04a10_Context_t));
-    free(pOS04a10Ctx);
+    osFree(pOS04a10Ctx);
     TRACE(OS04a10_INFO, "%s (exit)\n", __func__);
     return (result);
 }
@@ -455,12 +599,6 @@ static RESULT OS04a10_IsiSetStreamingIss(IsiSensorHandle_t handle, bool_t on)
             TRACE(OS04a10_ERROR, "%s: set sensor streaming off error! \n",__func__);
             return (RET_FAILURE);
         }
-
-        result = OS04a10_IsiWriteRegIss(handle, 0x0103, 1);//software reset
-        if (result != RET_SUCCESS) {
-            TRACE(OS04a10_ERROR, "%s: set sensor reset error! \n",__func__);
-            return (RET_FAILURE);
-        }
     }
 
     pOS04a10Ctx->streaming = on;
@@ -486,22 +624,55 @@ static RESULT OS04a10_IsiGetAeBaseInfoIss(IsiSensorHandle_t handle, IsiAeBaseInf
         return (RET_NULL_POINTER);
     }
 
-    /* linear */
-    pAeBaseInfo->gain.min        = pOS04a10Ctx->aecMinGain;//total gain
-    pAeBaseInfo->gain.max        = pOS04a10Ctx->aecMaxGain;
-    pAeBaseInfo->intTime.min     = pOS04a10Ctx->aecMinIntegrationTime;
-    pAeBaseInfo->intTime.max     = pOS04a10Ctx->aecMaxIntegrationTime;
+    if (pOS04a10Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
+        /* linear mode*/
+        pAeBaseInfo->gain.min        = pOS04a10Ctx->aecMinGain;//total gain
+        pAeBaseInfo->gain.max        = pOS04a10Ctx->aecMaxGain;
+        pAeBaseInfo->intTime.min     = pOS04a10Ctx->aecMinIntegrationTime;
+        pAeBaseInfo->intTime.max     = pOS04a10Ctx->aecMaxIntegrationTime;
 
-    pAeBaseInfo->aGain           = pOS04a10Ctx->aGain;//min, max, step
-    pAeBaseInfo->dGain           = pOS04a10Ctx->dGain;
+        pAeBaseInfo->aGain           = pOS04a10Ctx->aGain;//min, max, step
+        pAeBaseInfo->dGain           = pOS04a10Ctx->dGain;
 
-    pAeBaseInfo->aecCurGain      = pOS04a10Ctx->aecCurGain;
-    pAeBaseInfo->aecCurIntTime   = pOS04a10Ctx->aecCurIntegrationTime;
+        pAeBaseInfo->aecCurGain      = pOS04a10Ctx->aecCurGain;
+        pAeBaseInfo->aecCurIntTime   = pOS04a10Ctx->aecCurIntegrationTime;
 
-    pAeBaseInfo->aecGainStep     = pOS04a10Ctx->aecGainIncrement;
-    pAeBaseInfo->aecIntTimeStep  = pOS04a10Ctx->aecIntegrationTimeIncrement;
+        pAeBaseInfo->aecGainStep     = pOS04a10Ctx->aecGainIncrement;
+        pAeBaseInfo->aecIntTimeStep  = pOS04a10Ctx->aecIntegrationTimeIncrement;
+    } else if (pOS04a10Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_NATIVE) {
+        //based on HCG
+        //get time limit and total gain limit
+        pAeBaseInfo->longGain.min        = pOS04a10Ctx->aecMinGain;
+        pAeBaseInfo->longGain.max        = pOS04a10Ctx->aecMaxGain;
+        pAeBaseInfo->longIntTime.min     = pOS04a10Ctx->aecMinIntegrationTime;
+        pAeBaseInfo->longIntTime.max     = pOS04a10Ctx->aecMaxIntegrationTime;
 
-    TRACE(OS04a10_INFO, "%s: (enter)\n", __func__);
+        //get again/dgain min/max/step info
+        pAeBaseInfo->aLongGain           = pOS04a10Ctx->aGain;
+        pAeBaseInfo->dLongGain           = pOS04a10Ctx->dGain;
+
+        pAeBaseInfo->aecCurGain      = pOS04a10Ctx->aecCurGain;
+
+        //get current intTime and gain
+        pAeBaseInfo->curGain.gain[0]       = pOS04a10Ctx->aecCurLongGain;
+        pAeBaseInfo->curGain.gain[1]       = pOS04a10Ctx->aecCurGain;
+
+        pAeBaseInfo->curIntTime.intTime[0] = pOS04a10Ctx->aecCurLongIntegrationTime;
+        pAeBaseInfo->curIntTime.intTime[1] = pOS04a10Ctx->aecCurIntegrationTime;
+
+        pAeBaseInfo->aecGainStep     = pOS04a10Ctx->aecGainIncrement;
+        pAeBaseInfo->aecIntTimeStep  = pOS04a10Ctx->aecIntegrationTimeIncrement;
+        pAeBaseInfo->stitchingMode   = pOS04a10Ctx->sensorMode.stitchingMode;
+        pAeBaseInfo->nativeMode      = pOS04a10Ctx->sensorMode.nativeMode;
+        pAeBaseInfo->nativeHdrRatio[0] = 1.0;
+
+        pAeBaseInfo->conversionGainDCG = 1.0;
+    } else {
+        TRACE(OS04a10_INFO, "%s:not support this mode!\n", __func__);
+        return RET_NOTSUPP;
+    }
+
+    TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
     return (result);
 }
 
@@ -516,10 +687,37 @@ RESULT OS04a10_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         return RET_NULL_POINTER;
     }
 
-    again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 16);
-    result = OS04a10_IsiWriteRegIss(handle, 0x3508, (again >> 4) & 0x1f);
-    result |= OS04a10_IsiWriteRegIss(handle, 0x3509, (again & 0x0f) << 4 );
-    pOS04a10Ctx->curAgain = again/16.0f;
+    if (pOS04a10Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
+        again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 16);
+        result = OS04a10_IsiWriteRegIss(handle, 0x3508, (again >> 4) & 0x1f);
+        result |= OS04a10_IsiWriteRegIss(handle, 0x3509, (again & 0x0f) << 4 );
+        pOS04a10Ctx->curAgain = again/16.0f;
+    } else if (pOS04a10Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_NATIVE) {
+
+        pOS04a10Ctx->hcgAgain = (pSensorAGain->gain[ISI_LINEAR_PARAS] * 5);//make hcg agin is high than lcg again
+        pOS04a10Ctx->lcgAgain = (pSensorAGain->gain[ISI_LINEAR_PARAS]);
+
+        //set HCG again
+        if(pOS04a10Ctx->hcgAgain > pOS04a10Ctx->aGain.max){
+            pOS04a10Ctx->hcgAgain = pOS04a10Ctx->aGain.max;
+        }
+        again = (uint32_t)(pOS04a10Ctx->hcgAgain * 16);
+        result = OS04a10_IsiWriteRegIss(handle, 0x3508, (again >> 4) & 0x1f);
+        result |= OS04a10_IsiWriteRegIss(handle, 0x3509, (again & 0x0f) << 4 );
+
+        //set LCG again
+        if(pOS04a10Ctx->lcgAgain > pOS04a10Ctx->aGain.max){
+            pOS04a10Ctx->lcgAgain = pOS04a10Ctx->aGain.max;
+        }
+        again = (uint32_t)(pOS04a10Ctx->lcgAgain * 16);
+        result |= OS04a10_IsiWriteRegIss(handle, 0x3548, (again >> 4) & 0x1f);
+        result |= OS04a10_IsiWriteRegIss(handle, 0x3549, (again & 0x0f) << 4 );
+
+        pOS04a10Ctx->curAgain = pSensorAGain->gain[ISI_LINEAR_PARAS];
+    } else {
+        TRACE(OS04a10_INFO, "%s:not support this mode!\n", __func__);
+        return RET_NOTSUPP;
+    }
 
     TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -536,12 +734,43 @@ RESULT OS04a10_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
         return RET_NULL_POINTER;
     }
 
-    dgain = (uint32_t)(pSensorDGain->gain[ISI_LINEAR_PARAS] * 1024);
-    result = OS04a10_IsiWriteRegIss(handle, 0x350a, (dgain >> 10) & 0x0f);
-    result |= OS04a10_IsiWriteRegIss(handle,0x350b, (dgain >> 2) & 0xff);
-    result |= OS04a10_IsiWriteRegIss(handle,0x350c, (dgain & 0x03) << 6);
-    pOS04a10Ctx->curDgain = dgain/1024.0f;
-    pOS04a10Ctx->aecCurGain = pOS04a10Ctx->curAgain * pOS04a10Ctx->curDgain;
+    if (pOS04a10Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR) {
+        dgain = (uint32_t)(pSensorDGain->gain[ISI_LINEAR_PARAS] * 1024);
+        result = OS04a10_IsiWriteRegIss(handle, 0x350a, (dgain >> 10) & 0x0f);
+        result |= OS04a10_IsiWriteRegIss(handle,0x350b, (dgain >> 2) & 0xff);
+        result |= OS04a10_IsiWriteRegIss(handle,0x350c, (dgain & 0x03) << 6);
+        pOS04a10Ctx->curDgain = dgain/1024.0f;
+        pOS04a10Ctx->aecCurGain = pOS04a10Ctx->curAgain * pOS04a10Ctx->curDgain;
+    } else if (pOS04a10Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_NATIVE) {
+
+        pOS04a10Ctx->hcgDgain = (pSensorDGain->gain[ISI_LINEAR_PARAS] * 5);//make hcg dgin is high than lcg dgain
+        pOS04a10Ctx->lcgDgain = (pSensorDGain->gain[ISI_LINEAR_PARAS]);
+
+        //set HCG dgain
+        if(pOS04a10Ctx->hcgDgain > pOS04a10Ctx->dGain.max) {
+            pOS04a10Ctx->hcgDgain = pOS04a10Ctx->dGain.max;
+        }
+        dgain = (uint32_t)(pOS04a10Ctx->hcgDgain * 1024);
+        result = OS04a10_IsiWriteRegIss(handle, 0x350a, (dgain >> 10) & 0x0f);
+        result |= OS04a10_IsiWriteRegIss(handle,0x350b, (dgain >> 2) & 0xff);
+        result |= OS04a10_IsiWriteRegIss(handle,0x350c, (dgain & 0x03) << 6);
+
+        //set LCG dgain
+        if(pOS04a10Ctx->lcgDgain > pOS04a10Ctx->dGain.max) {
+            pOS04a10Ctx->lcgDgain = pOS04a10Ctx->dGain.max;
+        }
+        dgain = (uint32_t)(pOS04a10Ctx->lcgDgain * 1024);
+        result |= OS04a10_IsiWriteRegIss(handle, 0x354a, (dgain >> 10) & 0x0f);
+        result |= OS04a10_IsiWriteRegIss(handle,0x354b, (dgain >> 2) & 0xff);
+        result |= OS04a10_IsiWriteRegIss(handle,0x354c, (dgain & 0x03) << 6);
+
+        pOS04a10Ctx->curDgain = dgain/1024.0f;
+        pOS04a10Ctx->aecCurLongGain = pOS04a10Ctx->curAgain * pOS04a10Ctx->curDgain;
+        pOS04a10Ctx->aecCurGain = pOS04a10Ctx->curAgain * pOS04a10Ctx->curDgain;
+    } else {
+        TRACE(OS04a10_INFO, "%s:not support this mode!\n", __func__);
+        return RET_NOTSUPP;
+    }
 
     TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -610,6 +839,7 @@ RESULT OS04a10_IsiSetIntTimeIss(IsiSensorHandle_t handle, const IsiSensorIntTime
     result |= OS04a10_IsiWriteRegIss(handle, 0x3502, expLine & 0xff);
 
     pOS04a10Ctx->aecCurIntegrationTime = expLine * pOS04a10Ctx->oneLineExpTime;
+    pOS04a10Ctx->aecCurLongIntegrationTime = expLine * pOS04a10Ctx->oneLineExpTime;
 
 
     TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
@@ -702,6 +932,116 @@ RESULT OS04a10_IsiGetIspStatusIss(IsiSensorHandle_t handle, IsiIspStatus_t *pIsp
     return RET_SUCCESS;
 }
 
+static RESULT OS04a10_IsiSetWBIss(IsiSensorHandle_t handle, const IsiSensorWb_t *pWb)
+{
+    RESULT result = RET_SUCCESS;
+    TRACE(OS04a10_INFO, "%s: (enter)\n", __func__);
+    uint16_t rGain, grGain, gbGain, bGain;
+
+    OS04a10_Context_t *pOS04a10Ctx = (OS04a10_Context_t *) handle;
+    if (pOS04a10Ctx == NULL || pOS04a10Ctx->isiCtx.halI2cHandle == NULL) {
+        return RET_WRONG_HANDLE;
+    }
+
+    if (pWb == NULL)  return RET_NULL_POINTER;
+
+    TRACE(OS04a10_INFO, "%s: wb info: pWb->rGain = %f, pWb->grGain = %f, pWb->gbGain = %f, pWb->bGain = %f.\n", 
+        __func__, pWb->rGain, pWb->grGain, pWb->gbGain, pWb->bGain);
+    //os04a10 awb gain, 0x400 means gain 1.0x
+    bGain  = (uint16_t)(pWb->bGain*1024);
+    gbGain = (uint16_t)(pWb->gbGain*1024);
+    grGain = (uint16_t)(pWb->grGain*1024);
+    rGain  = (uint16_t)(pWb->rGain*1024);
+
+    //set HCG wb gain
+    result = OS04a10_IsiWriteRegIss(handle, 0x5180, (bGain >> 8) & 0x7f);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x5181, bGain & 0xff);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x5182, (gbGain >> 8) & 0x7f);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x5183, gbGain & 0xff);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x5184, (grGain >> 8) & 0x7f);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x5185, grGain & 0xff);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x5186, (rGain >> 8) & 0x7f);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x5187, rGain & 0xff);
+
+    //set LCG wb gain
+    result = OS04a10_IsiWriteRegIss(handle, 0x51a0, (bGain >> 8) & 0x7f);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x51a1, bGain & 0xff);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x51a2, (gbGain >> 8) & 0x7f);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x51a3, gbGain & 0xff);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x51a4, (grGain >> 8) & 0x7f);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x51a5, grGain & 0xff);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x51a6, (rGain >> 8) & 0x7f);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x51a7, rGain & 0xff);
+
+    pOS04a10Ctx->sensorWb.bGain  = bGain / 1024.0;
+    pOS04a10Ctx->sensorWb.gbGain = gbGain / 1024.0;
+    pOS04a10Ctx->sensorWb.grGain = grGain / 1024.0;
+    pOS04a10Ctx->sensorWb.rGain  = rGain / 1024.0;
+
+    TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
+    return (result);
+}
+
+static RESULT OS04a10_IsiGetWBIss(IsiSensorHandle_t handle, IsiSensorWb_t *pWb)
+{
+    RESULT result = RET_SUCCESS;
+    TRACE(OS04a10_INFO, "%s: (enter)\n", __func__);
+
+    const OS04a10_Context_t *pOS04a10Ctx = (OS04a10_Context_t *) handle;
+    if (pOS04a10Ctx == NULL) {
+        return RET_WRONG_HANDLE;
+    }
+
+    if (pWb == NULL)  return RET_NULL_POINTER;
+
+    memcpy(pWb, &pOS04a10Ctx->sensorWb, sizeof(IsiSensorWb_t));
+
+    TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
+    return (result);
+}
+
+static RESULT OS04a10_IsiSetBlcIss(IsiSensorHandle_t handle, const IsiSensorBlc_t *pBlc)
+{
+    RESULT result = RET_SUCCESS;
+    TRACE(OS04a10_INFO, "%s: (enter)\n", __func__);
+
+    OS04a10_Context_t *pOS04a10Ctx = (OS04a10_Context_t *) handle;
+    if (pOS04a10Ctx == NULL) {
+        return RET_WRONG_HANDLE;
+    }
+
+    if (pBlc == NULL)  return RET_NULL_POINTER;
+
+    TRACE(OS04a10_INFO, "%s: bls info: pBlc->red = %d. \n", __func__, pBlc->red);
+    result = OS04a10_IsiWriteRegIss(handle, 0x4004, (pBlc->red >> 4) & 0xf);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x4005, (pBlc->red << 4) & 0xff);//HCG BLC
+    result |= OS04a10_IsiWriteRegIss(handle, 0x402e, (pBlc->red >> 4) & 0xf);
+    result |= OS04a10_IsiWriteRegIss(handle, 0x402f, (pBlc->red << 4) & 0xff);//LCG BLC
+
+    memcpy(&pOS04a10Ctx->sensorBlc, pBlc, sizeof(IsiSensorBlc_t));
+
+    TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
+    return (result);
+}
+
+static RESULT OS04a10_IsiGetBlcIss(IsiSensorHandle_t handle, IsiSensorBlc_t *pBlc)
+{
+    RESULT result = RET_SUCCESS;
+    TRACE(OS04a10_INFO, "%s: (enter)\n", __func__);
+    
+    const OS04a10_Context_t *pOS04a10Ctx = (OS04a10_Context_t *) handle;
+    if (pOS04a10Ctx == NULL) {
+        return RET_WRONG_HANDLE;
+    }
+
+    if (pBlc == NULL)  return RET_NULL_POINTER;
+
+    memcpy(pBlc, &pOS04a10Ctx->sensorBlc, sizeof(IsiSensorBlc_t));
+
+    TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
+    return (result);
+}
+
 RESULT OS04a10_IsiSetTpgIss(IsiSensorHandle_t handle, IsiSensorTpg_t tpg)
 {
     RESULT result = RET_SUCCESS;
@@ -751,6 +1091,44 @@ RESULT OS04a10_IsiGetTpgIss(IsiSensorHandle_t handle, IsiSensorTpg_t *pTpg)
     return (result);
 }
 
+static RESULT OS04a10_IsiGetExpandCurveIss(IsiSensorHandle_t handle, IsiSensorCompandCurve_t *pCurve)
+{
+    RESULT result = RET_SUCCESS;
+    TRACE(OS04a10_INFO, "%s: (enter)\n", __func__);
+
+    OS04a10_Context_t *pOS04a10Ctx = (OS04a10_Context_t *) handle;
+    if (pOS04a10Ctx == NULL || pOS04a10Ctx->isiCtx.halI2cHandle == NULL) {
+        return RET_NULL_POINTER;
+    }
+
+    uint8_t expandPx[64] = {6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+                             6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+                             6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+                             6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6};
+    memcpy(pCurve->compandPx, expandPx, sizeof(expandPx));
+
+    pCurve->compandXData[0] = 0;
+    pCurve->compandYData[0] = 0;
+    for(int i=1; i<65; i++){
+        pCurve->compandXData[i] = (1 << pCurve->compandPx[i-1]) + pCurve->compandXData[i-1];
+
+        if(pCurve->compandXData[i] < 1024){
+            pCurve->compandYData[i] = pCurve->compandXData[i];
+        } else if (pCurve->compandXData[i] < 1280){
+            pCurve->compandYData[i] = (pCurve->compandXData[i] - 768) << 2;//*4
+        } else if (pCurve->compandXData[i] < 2048){
+            pCurve->compandYData[i] = (pCurve->compandXData[i] - 1024) << 3;//*8
+        } else if (pCurve->compandXData[i] < 3584){
+            pCurve->compandYData[i] = (pCurve->compandXData[i] - 1536) << 4;//*16
+        } else {
+            pCurve->compandYData[i] = (pCurve->compandXData[i] - 3072) << 6;//*64
+        }
+    }
+
+    TRACE(OS04a10_INFO, "%s: (exit)\n", __func__);
+    return (result);
+}
+
 RESULT OS04a10_IsiGetSensorIss(IsiSensor_t *pIsiSensor)
 {
     RESULT result = RET_SUCCESS;
@@ -785,10 +1163,15 @@ RESULT OS04a10_IsiGetSensorIss(IsiSensor_t *pIsiSensor)
 
         /* SENSOR ISP */
         pIsiSensor->pIsiGetIspStatusIss                 = OS04a10_IsiGetIspStatusIss;
+        pIsiSensor->pIsiSetWBIss                        = OS04a10_IsiSetWBIss;
+        pIsiSensor->pIsiGetWBIss                        = OS04a10_IsiGetWBIss;
+        pIsiSensor->pIsiSetBlcIss                       = OS04a10_IsiSetBlcIss;
+        pIsiSensor->pIsiGetBlcIss                       = OS04a10_IsiGetBlcIss;
 
         /* SENSOE OTHER FUNC*/
         pIsiSensor->pIsiSetTpgIss                       = OS04a10_IsiSetTpgIss;
         pIsiSensor->pIsiGetTpgIss                       = OS04a10_IsiGetTpgIss;
+        pIsiSensor->pIsiGetExpandCurveIss               = OS04a10_IsiGetExpandCurveIss;
 
         /* AF */
         pIsiSensor->pIsiFocusCreateIss                  = NULL;

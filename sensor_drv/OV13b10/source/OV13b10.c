@@ -1,14 +1,28 @@
-/******************************************************************************\
-|* Copyright (c) 2020 by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")       *|
-|* All Rights Reserved.                                                       *|
-|*                                                                            *|
-|* The material in this file is confidential and contains trade secrets of    *|
-|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
-|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
-|* transmitted, or used in any way for any purpose, without the express       *|
-|* written permission of VeriSilicon.                                         *|
-|*                                                                            *|
-\******************************************************************************/
+/****************************************************************************
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -279,7 +293,7 @@ static RESULT OV13b10_AecSetModeParameters(IsiSensorHandle_t handle, OV13b10_Con
     RESULT result = RET_SUCCESS;
     uint16_t value = 0;
     uint32_t regVal = 0;
-    float again = 0, dgain = 0;
+    float32_t again = 0, dgain = 0;
     TRACE(OV13b10_INFO, "%s%s: (enter)\n", __func__,pOV13b10Ctx->isAfpsRun ? "(AFPS)" : "");
 
     pOV13b10Ctx->aecIntegrationTimeIncrement = pOV13b10Ctx->oneLineExpTime;
@@ -304,7 +318,7 @@ static RESULT OV13b10_AecSetModeParameters(IsiSensorHandle_t handle, OV13b10_Con
     regVal = (value & 0x0f) << 7;
     OV13b10_IsiReadRegIss(handle, 0x3509, &value);
     regVal = regVal | ((value & 0xfe) >> 1);
-    again = (float)regVal/128.0f;
+    again = (float32_t)regVal/128.0f;
 
     OV13b10_IsiReadRegIss(handle, 0x350a, &value);
     regVal = (value & 0x03) << 10;
@@ -312,7 +326,7 @@ static RESULT OV13b10_AecSetModeParameters(IsiSensorHandle_t handle, OV13b10_Con
     regVal = regVal | ((value & 0xFF) << 2);
     OV13b10_IsiReadRegIss(handle, 0x350c, &value);
     regVal = regVal | ((value & 0xc0) >> 6);
-    dgain = (float)regVal/1024.0f;
+    dgain = (float32_t)regVal/1024.0f;
     pOV13b10Ctx->aecCurGain = again * dgain;
     TRACE(OV13b10_INFO, "%s%s: (exit)\n", __func__,pOV13b10Ctx->isAfpsRun ? "(AFPS)" : "");
 
@@ -485,8 +499,8 @@ static RESULT OV13b10_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOV13b10Ctx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOV13b10Ctx->isiCtx.halI2cHandle);
     (void)HalDelRef(pOV13b10Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOV13b10Ctx->isiCtx.halI2cHandle);
 
     osFree(pOV13b10Ctx->pLscData);
     pOV13b10Ctx->pLscData = NULL;
@@ -638,7 +652,7 @@ RESULT OV13b10_IsiSetAGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
     again = (uint32_t)(pSensorAGain->gain[ISI_LINEAR_PARAS] * 128);
     result = OV13b10_IsiWriteRegIss(handle, 0x3508,  (again >> 7) & 0x0f);
     result |= OV13b10_IsiWriteRegIss(handle, 0x3509, (again & 0x7f) << 1);
-    pOV13b10Ctx->curAgain = (float)again/128.0f;
+    pOV13b10Ctx->curAgain = (float32_t)again/128.0f;
 
     TRACE(OV13b10_INFO, "%s: (exit)\n", __func__);
     return (result);
@@ -659,7 +673,7 @@ RESULT OV13b10_IsiSetDGainIss(IsiSensorHandle_t handle, IsiSensorGain_t *pSensor
     result = OV13b10_IsiWriteRegIss(handle,  0x350a, (dgain >> 10) & 0x03);
     result |= OV13b10_IsiWriteRegIss(handle, 0x350b, (dgain >> 2) & 0xff);
     result |= OV13b10_IsiWriteRegIss(handle, 0x350c, (dgain & 0x3)<<6);
-    pOV13b10Ctx->curDgain = (float)dgain/1024.0f;
+    pOV13b10Ctx->curDgain = (float32_t)dgain/1024.0f;
     pOV13b10Ctx->aecCurGain = pOV13b10Ctx->curAgain * pOV13b10Ctx->curDgain;
 
     TRACE(OV13b10_INFO, "%s: (exit)\n", __func__);

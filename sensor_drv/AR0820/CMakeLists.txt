@@ -45,16 +45,6 @@ if(${STATIC_BUILD} STREQUAL 0)
     SET_TARGET_PROPERTIES(${module}_shared PROPERTIES VERSION         ${${module}_INTERFACE_CURRENT}.${${module}_INTERFACE_REVISION}.${${module}_INTERFACE_AGE})
     SET_TARGET_PROPERTIES(${module}_shared PROPERTIES FRAMEWORK       TRUE PUBLIC_HEADER "${pub_headers}")
 
-    # add convenience target: put sensor driver into the 'bin' output dir as well
-    if ( NOT ANDROID )
-    add_custom_target(${module}.drv
-                    ALL
-                    COMMAND ${CMAKE_COMMAND} -E copy ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.so.${${module}_INTERFACE_CURRENT} ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/${module}.drv
-                    DEPENDS ${module}_shared
-                    COMMENT "Copying ${module} driver module"
-                    )
-    endif()
-
     install(TARGETS ${module}_shared
             PUBLIC_HEADER   DESTINATION ${CMAKE_INSTALL_PREFIX}/include/${module}
             ARCHIVE         DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/${module}
@@ -65,7 +55,7 @@ elseif(${STATIC_BUILD} STREQUAL 1)
         add_library(${module}_static STATIC ${libsources})
 
         # install the sensor driver as well, but to 'bin' location!
-    install(FILES       ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.a.${${module}_INTERFACE_CURRENT}
+        install(FILES       ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.a
         DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
         RENAME      ${module}.drv
         )
@@ -76,19 +66,7 @@ elseif(${STATIC_BUILD} STREQUAL 1)
 
     SET_TARGET_PROPERTIES(${module}_static PROPERTIES OUTPUT_NAME     ${module})
     SET_TARGET_PROPERTIES(${module}_static PROPERTIES LINK_FLAGS      -static)
-    SET_TARGET_PROPERTIES(${module}_static PROPERTIES SOVERSION       ${${module}_INTERFACE_CURRENT})
-    SET_TARGET_PROPERTIES(${module}_static PROPERTIES VERSION         ${${module}_INTERFACE_CURRENT}.${${module}_INTERFACE_REVISION}.${${module}_INTERFACE_AGE})
     SET_TARGET_PROPERTIES(${module}_static PROPERTIES FRAMEWORK       TRUE PUBLIC_HEADER "${pub_headers}")
-
-    # add convenience target: put sensor driver into the 'bin' output dir as well
-    if ( NOT ANDROID )
-    add_custom_target(${module}.drv
-                    ALL
-                    COMMAND ${CMAKE_COMMAND} -E copy ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/lib/lib${module}.a ${LIB_ROOT}/${CMAKE_BUILD_TYPE}/bin/${module}.drv
-                    DEPENDS ${module}_static
-                    COMMENT "Copying ${module} driver module"
-                    )
-    endif()
 
     install(TARGETS ${module}_static
             PUBLIC_HEADER   DESTINATION ${CMAKE_INSTALL_PREFIX}/include/${module}
@@ -97,7 +75,7 @@ elseif(${STATIC_BUILD} STREQUAL 1)
             )
 endif()
 # create common targets for this module
-include(${DRIVER_TOP_DIRECTORY}/targets.cmake)
+include(${UNITS_TOP_DIRECTORY}/targets.cmake)
 
 # create calib data targets
 add_subdirectory(calib)

@@ -1,28 +1,28 @@
 /****************************************************************************
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014-2022 Vivante Corporation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
- ****************************************************************************/
+*
+*    The MIT License (MIT)
+*
+*    Copyright (c) 2014 - 2024 Vivante Corporation
+*
+*    Permission is hereby granted, free of charge, to any person obtaining a
+*    copy of this software and associated documentation files (the "Software"),
+*    to deal in the Software without restriction, including without limitation
+*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*    and/or sell copies of the Software, and to permit persons to whom the
+*    Software is furnished to do so, subject to the following conditions:
+*
+*    The above copyright notice and this permission notice shall be included in
+*    all copies or substantial portions of the Software.
+*
+*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*    DEALINGS IN THE SOFTWARE.
+*
+*****************************************************************************/
 
 /* VeriSilicon 2022 */
 
@@ -209,23 +209,23 @@ typedef enum IsiBayerPattern_e
 } IsiBayerPattern_t;
 
 typedef struct IsiGainInfo_s {
-    float min;
-    float max;
-    float step;
+    float32_t min;
+    float32_t max;
+    float32_t step;
 } IsiGainInfo_t;
 
 typedef struct IsiRange_s {
-    float min;
-    float max;
+    float32_t min;
+    float32_t max;
 } IsiRange_t;
 
 typedef struct IsiSensorGain_s
 {
-    float      gain[4];
+    float32_t      gain[4];
 } IsiSensorGain_t;
 
 typedef struct IsiSensorIntTime_s{
-    float      intTime[4];
+    float32_t      intTime[4];
 }IsiSensorIntTime_t;
 
 typedef struct IsiSensorWin_s {
@@ -244,6 +244,48 @@ typedef struct IsiSensorBuffer_s {
     uint8_t *pdata;
     uint32_t dataSize;
 }IsiSensorBuffer_t;
+
+/*****************************************************************************/
+/**
+ *          IsiSyncSignalPolarity_t
+ *
+ * @brief   sensor dvp output H/V sync polarity
+ */
+/*****************************************************************************/
+typedef enum IsiSyncSignalPolarity_e
+{
+   ISI_SYNC_POL_HIGH_ACIVE   = 0,
+   ISI_SYNC_POL_LOW_ACIVE    = 1
+} IsiSyncSignalPolarity_t;
+
+/*****************************************************************************/
+/**
+ *          IsiSyncSignalPolarity_t
+ *
+ * @brief   sensor output sample edge polarity
+ */
+/*****************************************************************************/
+typedef enum IsiSampleEdgePolarity_e
+{
+   ISI_SAMPLE_EDGE_POL_NEGATIVE    = 0,
+   ISI_SAMPLE_EDGE_POL_POSITIVE    = 1
+} IsiSampleEdgePolarity_t;
+
+/*****************************************************************************/
+/**
+ *          IsiSensorCCIRequence_t
+ *
+ * @brief   sensor output ccir sequence.
+ */
+/*****************************************************************************/
+typedef enum IsiSensorCCIRSequence_e
+{
+    ISI_SENSOR_CCIR_SEQUENCE_YCbYCr   = 0,        /**< YCbYCr */
+    ISI_SENSOR_CCIR_SEQUENCE_YCrYCb   = 1,        /**< YCrYCb */
+    ISI_SENSOR_CCIR_SEQUENCE_CbYCrY   = 2,        /**< CbYCrY */
+    ISI_SENSOR_CCIR_SEQUENCE_CrYCbY   = 3,        /**< CrYCbY */
+} IsiSensorCCIRSequence_t;
+
 
 /*****************************************************************************/
 /**

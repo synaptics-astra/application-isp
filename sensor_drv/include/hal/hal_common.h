@@ -38,6 +38,7 @@ extern "C"
 /* TODO: Check bufType
 * Use ring buffer when IOMMU is disabled. Otherwise, use normal buffer */
 #define IS_RING_BUFFER_MODE(bufType) 1
+#define MCM_RING_BUFFER_LEN 5
 #endif
 
 /* MACRO for reserved memory. */

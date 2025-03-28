@@ -756,7 +756,7 @@ RESULT OV5647_IsiGetIntTimeIss(IsiSensorHandle_t handle, IsiSensorIntTime_t *pSe
     if (!pSensorIntTime) return (RET_NULL_POINTER);
 
     if (pOV5647Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_LINEAR || pOV5647Ctx->sensorMode.hdrMode == ISI_SENSOR_MODE_HDR_NATIVE) {
-        pSensorIntTime->intTime[ISI_TRI_EXP_S_PARAS] = pOV5647Ctx->aecCurIntegrationTime;
+        pSensorIntTime->intTime[ISI_LINEAR_PARAS] = pOV5647Ctx->aecCurIntegrationTime;
 
     } else {
         TRACE(OV5647_INFO, "%s:not support this ExpoFrmType.\n", __func__);

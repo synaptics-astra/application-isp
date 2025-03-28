@@ -1,0 +1,23 @@
+<RCC>
+    <qresource prefix="/Image">
+        <file>effect.png</file>
+        <file>live-streaming.png</file>
+        <file>settings.png</file>
+        <file>video-camera.png</file>
+        <file>photo-camera.png</file>
+        <file>setting-white.png</file>
+        <file>live-white.png</file>
+        <file>video-white.png</file>
+        <file>photo-white.png</file>
+        <file>cam-start.png</file>
+        <file>cam-stop.png</file>
+        <file>video-stop.png</file>
+        <file>blue-square.png</file>
+        <file>blue-circle.png</file>
+        <file>blue-stop.png</file>
+        <file>gallery.png</file>
+        <file>back.png</file>
+        <file>exit1.png</file>
+    </qresource>
+    <qresource prefix="/"/>
+</RCC>

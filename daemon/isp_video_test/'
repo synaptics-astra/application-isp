@@ -1,0 +1,500 @@
+/******************************************************************************\
+|* Copyright (c) <2024> by VeriSilicon Holdings Co., Ltd. ("VeriSilicon")     *|
+|* All Rights Reserved.                                                       *|
+|*                                                                            *|
+|* The material in this file is confidential and contains trade secrets       *|
+|* of VeriSilicon.  This is proprietary information owned or licensed by      *|
+|* VeriSilicon.  No part of this work may be disclosed, reproduced, copied,   *|
+|* transmitted, or used in any way for any purpose, without the express       *|
+|* written permission of VeriSilicon.                                         *|
+|*                                                                            *|
+\******************************************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sched.h>
+#include <assert.h>
+#include <memory.h>
+#include <linux/videodev2.h>
+
+#include "drm_display.h"
+#include "display.h"
+#include "yuv_to_rgb.h"
+
+static int drm_open(drm_dev_t *handle, char *node)
+{
+    int fd;
+    fd = open(node, O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+        printf("open drm %s failed\n", node);
+        return -1;
+    }
+
+    uint64_t has_dumb;
+    if (drmGetCap(fd, DRM_CAP_DUMB_BUFFER, &has_dumb) < 0 || !has_dumb) {
+        printf("drm device '%s' does not support dumb buffers\n", node);
+        close(fd);
+        return -2;
+    }
+
+    handle->fd = fd;
+
+    return 0;
+}
+
+static int modeset_find_crtc(drm_dev_t *handle, drmModeRes *res, drmModeConnector *conn)
+{
+    drmModeEncoder *enc;
+    int i, j;
+
+    for (i = 0; i < conn->count_encoders; i++) {
+        enc = drmModeGetEncoder(handle->fd, conn->encoders[i]);
+        if (!enc)
+            continue;
+
+        for (j = 0; j < res->count_crtcs; j++) {
+            if (!(enc->possible_crtcs & (1 << j)))
+                continue;
+
+            if (res->crtcs[j]) {
+                handle->crtc_id = res->crtcs[j];
+                drmModeFreeEncoder(enc);
+                return 0;
+            }
+        }
+        drmModeFreeEncoder(enc);
+    }
+    return -ENOENT;
+}
+
+static int drm_create_fb(drm_dev_t *handle, struct drm_buffer *buf)
+{
+    struct drm_mode_create_dumb creq;
+    struct drm_mode_destroy_dumb dreq;
+    struct drm_mode_map_dumb mreq;
+    int ret;
+
+    memset(&creq, 0, sizeof(creq));
+    creq.width  = buf->width;
+    creq.height = buf->height;
+    creq.bpp = 32;
+
+    ret = drmIoctl(handle->fd, DRM_IOCTL_MODE_CREATE_DUMB, &creq);
+    if (ret < 0) {
+        printf("cannot create dumb buffer(%d)\n", errno);
+        return ret;
+    }
+
+    buf->stride = creq.pitch;
+    buf->size   = creq.size;
+    buf->handle = creq.handle;
+
+    ret = drmModeAddFB(handle->fd, buf->width, buf->height, creq.bpp, creq.bpp,
+                buf->stride, buf->handle, &buf->fb);
+    if (ret) {
+        printf("cannot create framebuffer\n");
+        goto err_destroy;
+    }
+
+    memset(&mreq, 0, sizeof(mreq));
+    mreq.handle = buf->handle;
+    ret = drmIoctl(handle->fd, DRM_IOCTL_MODE_MAP_DUMB, &mreq);
+    if (ret) {
+        printf("cannot map dumb buffer\n");
+        goto err_fb;
+    }
+
+    buf->fb_base = mmap(0, buf->size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                            handle->fd, mreq.offset);
+    if (buf->fb_base == MAP_FAILED) {
+        printf("cannot mmap dumb buffer\n");
+        goto err_fb;
+    }
+
+    memset(buf->fb_base, 255, buf->size);
+
+    return 0;
+
+
+err_fb:
+    drmModeRmFB(handle->fd, buf->fb);
+err_destroy:
+    memset(&dreq, 0, sizeof(dreq));
+    dreq.handle = buf->handle;
+    drmIoctl(handle->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq);
+
+    return ret;
+}
+
+static void drm_destroy_fb(drm_dev_t *handle, struct drm_buffer *buf)
+{
+    struct drm_mode_destroy_dumb dreq;
+
+    munmap(buf->fb_base, buf->size);
+    drmModeRmFB(handle->fd, buf->fb);
+
+    memset(&dreq, 0, sizeof(dreq));
+    dreq.handle = buf->handle;
+    drmIoctl(handle->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq);
+    buf->fb_base = NULL;
+}
+
+static int modset_fb(drm_dev_t *handle)
+{
+    int ret = drm_create_fb(handle, &handle->bufs[0]);
+    if (ret) {
+        printf("cannot create framebuffer for connector %u\n", handle->conn);
+        return ret;
+    }
+
+    ret = drm_create_fb(handle, &handle->bufs[1]);
+    if (ret) {
+        drm_destroy_fb(handle, &handle->bufs[0]);
+        printf("cannot create framebuffer for connector %u\n", handle->conn);
+        return ret;
+    }
+
+    return 0;
+}
+
+static int modeset_setup_dev(drm_dev_t *handle, drmModeRes *res, drmModeConnector *conn)
+{
+    int ret;
+
+    if (conn->connection != DRM_MODE_CONNECTED) {
+        printf("ignore unused connector %u\n", conn->connector_id);
+        return -1;
+    }
+
+    if (conn->count_modes == 0) {
+        printf("no valid mode for connector %u\n", conn->connector_id);
+        return -1;
+    }
+
+    handle->count_modes = conn->count_modes;
+    handle->mode_list = (drmModeModeInfo *)malloc(sizeof(drmModeModeInfo) * conn->count_modes);
+
+    for (int i = 0; i < conn->count_modes; i++) {
+        printf("mode for connector%u is %ux%u\n", conn->connector_id,
+                    conn->modes[i].hdisplay, conn->modes[i].vdisplay);
+        memcpy(&handle->mode_list[i], &conn->modes[i], sizeof(drmModeModeInfo));
+    }
+
+    memcpy(&handle->mode, &conn->modes[0], sizeof(handle->mode));
+
+    handle->bufs[0].width = conn->modes[0].hdisplay;
+    handle->bufs[0].height = conn->modes[0].vdisplay;
+    handle->bufs[1].width = conn->modes[0].hdisplay;
+    handle->bufs[1].height = conn->modes[0].vdisplay;
+
+    ret = modeset_find_crtc(handle, res, conn);
+    if (ret) {
+        printf("cannot find suitable CRTC for connector %d\n", conn->connector_id);
+        return -1;
+    }
+
+    return modset_fb(handle);
+}
+
+static int drm_prepare(drm_dev_t *handle)
+{
+    int ret;
+    printf("drm display\n");
+
+    ret = drmSetMaster(handle->fd);
+    if (ret < 0) {
+        printf("drmSetMaster failed, error: %s\n", strerror(errno));
+        return -1;
+    }
+
+    drmModeRes *res;
+    res = drmModeGetResources(handle->fd);
+    if (!res) {
+        printf("cannot retrieve DRM resources\n");
+        return -1;
+    }
+
+    drmModeConnector *conn;
+    for (int i = 0; i < res->count_connectors; i++) {
+        conn = drmModeGetConnector(handle->fd, res->connectors[i]);
+        if (!conn) {
+            printf("cannot retrieve DRM connector %d:%u (%d)\n",
+                                         i, res->connectors[i], errno);
+            continue;
+        }
+        handle->conn = conn->connector_id;
+
+        ret = modeset_setup_dev(handle, res, conn);
+        if (ret) {
+            printf("cannot setup device for connector %u\n", res->connectors[i]);
+            drmDropMaster(handle->fd);
+            drmModeFreeConnector(conn);
+            continue;
+        }
+
+        drmModeFreeConnector(conn);
+        break;
+    }
+
+    drmModePlaneRes *plane_res;
+    plane_res = drmModeGetPlaneResources(handle->fd);
+    if (!plane_res) {
+        printf("drmModeGetPlaneResources failed\n");
+        drmModeFreeResources(res);
+        return -1;
+    }
+
+    handle->plane_id = plane_res->planes[0];
+    drmModePlane *plane;
+    plane = drmModeGetPlane(handle->fd, handle->plane_id);
+    if (!plane) {
+        printf("drmModeGetPlane failed\n");
+        drmModeFreePlaneResources(plane_res);
+        drmModeFreeResources(res);
+        return -1;
+    }
+
+
+
+    drmModeFreeResources(res);
+    return 0;
+}
+
+
+static void *display_drm_open(int busid)
+{
+    int ret = 0;
+    int i = 0;
+    drm_dev_t *drm_dev = NULL;
+    char drm_dev_name[64];
+
+    drm_dev = (drm_dev_t*)malloc(sizeof(drm_dev_t));
+    if (NULL == drm_dev) {
+        printf("malloc drm_dev failed\n");
+        return NULL;
+    }
+    memset(drm_dev, 0, sizeof(drm_dev_t));
+
+    sprintf(drm_dev_name, "/dev/dri/card%d", busid);
+    ret = drm_open(drm_dev, drm_dev_name);
+    if (0 != ret) {
+        printf("drm_open /dev/dri/card%d failed\n", busid);
+        printf("start to iterate /dev/dri\n");
+    } else {
+        goto success;
+    }
+
+loop:
+    if (i == busid) {
+        i++;
+        goto loop;
+    }
+    sprintf(drm_dev_name, "/dev/dri/card%d", i++);
+    ret = drm_open(drm_dev, drm_dev_name);
+    if (-1 == ret) {
+        printf("can not open drm_dev\n");
+        printf("iterate over\n");
+        goto err_free_handle;
+    } else if (-2 == ret) {
+        goto loop;
+    }
+
+success:
+    ret = drm_prepare(drm_dev);
+    if (ret) {
+        printf("drm_prepare return failed\n");
+        goto err_close_fd;
+    }
+    yuv_to_rgb_bt601_limit_range_init();
+    return drm_dev;
+
+err_close_fd:
+    close(drm_dev->fd);
+err_free_handle:
+    free(drm_dev);
+
+    return NULL;
+}
+
+static void display_drm_close(void *handle)
+{
+    drm_dev_t *drm_dev = (drm_dev_t*)handle;
+    if (!drm_dev)
+        return;
+
+    if(drm_dev->fd > 0) {
+        drmDropMaster(drm_dev->fd);
+        close(drm_dev->fd);
+        if (drm_dev->mode_list)
+            free(drm_dev->mode_list);
+    }
+    free(drm_dev);
+    return;
+}
+
+static int display_drm_adaptive_resoultion(drm_dev_t *handle, int width, int height)
+{
+    int i;
+
+    drmModeModeInfo *mode = NULL;
+    for (i = 0; i < handle->count_modes ; i++) {
+        if ((width == handle->mode_list[i].hdisplay) && (height == handle->mode_list[i].vdisplay)) {
+            mode = &handle->mode_list[i];
+            break;
+        }
+    }
+
+    if (!mode) {
+        printf("%s drm not supportesolution %d*%d\n", __func__, width, height);
+        return -1;
+    }
+
+    memcpy(&handle->mode, mode, sizeof(drmModeModeInfo));
+    handle->bufs[0].width = width;
+    handle->bufs[0].height = height;
+    handle->bufs[1].width = width;
+    handle->bufs[1].height = height;
+
+    if (handle->bufs[0].fb_base != NULL) {
+        drm_destroy_fb(handle, &handle->bufs[0]);
+    }
+
+    if (handle->bufs[1].fb_base != NULL) {
+        drm_destroy_fb(handle, &handle->bufs[1]);
+    }
+
+    drm_create_fb(handle, &handle->bufs[0]);
+    drm_create_fb(handle, &handle->bufs[1]);
+
+    return 0;
+}
+
+static int display_drm_show_mp(void *handle, void *data1, void *data2,
+        int width, int height, int fourcc, int iommu)
+{
+    drm_dev_t *drm_dev = (drm_dev_t*)handle;
+    struct drm_buffer *buf;
+    static unsigned index = 0;
+
+    /*
+    drmModePlaneRes *plane_resources;
+    drmModePlane *plane;
+    uint32_t plane_id;
+    */
+
+    printf("****%s: Entry\n", __func__);
+    buf = &drm_dev->bufs[index & 0x01];
+
+    if ((buf->width != width) || (buf->height != height)) {
+        display_drm_adaptive_resoultion(drm_dev, width, height);
+    }
+
+    switch(fourcc) {
+        case V4L2_PIX_FMT_NV12M:
+            nv12m_to_rgb32(buf->fb_base, data1, data2, width, height, iommu);
+            break;
+        case V4L2_PIX_FMT_NV12:
+            //nv12_to_rgb32(buf->fb_base, data1, width, height);
+            memcpy(buf->fb_base, data1, width * height / 2);
+            break;
+        case V4L2_PIX_FMT_BGR24:
+        case V4L2_PIX_FMT_RGB24:
+            bgr24_to_rgb32(buf->fb_base, data1, width, height);
+            break;
+        case V4L2_PIX_FMT_SBGGR10:
+        case V4L2_PIX_FMT_SGBRG10:
+        case V4L2_PIX_FMT_SGRBG10:
+        case V4L2_PIX_FMT_SRGGB10:
+            raw16_to_rgb32(buf->fb_base, data1, width, height, 10);
+            break;
+        case V4L2_PIX_FMT_SBGGR12:
+        case V4L2_PIX_FMT_SGBRG12:
+        case V4L2_PIX_FMT_SGRBG12:
+        case V4L2_PIX_FMT_SRGGB12:
+            raw16_to_rgb32(buf->fb_base, data1, width, height, 12);
+            break;
+        default:
+            printf("%s: Unsupported format: %d\n", __func__, fourcc);
+            return -1;
+    }
+    printf("%s: conn_id: %d, crtc_id: %d, crtc buf: %d, fb_base: %d\n", __func__, drm_dev->conn, drm_dev->crtc_id, buf->fb, (int)buf->fb_base);
+    drmModeSetCrtc(drm_dev->fd, drm_dev->crtc_id, buf->fb, 0, 0, &drm_dev->conn, 1, &drm_dev->mode);
+    printf("Plane_id = %d-------------------------------\n", drm_dev->plane_id);
+    drmModeSetPlane(drm_dev->fd, drm_dev->plane_id, drm_dev->crtc_id, buf->fb, 0, 0, 0, width, height,
+                    0, 0, width  << 16, height << 16);
+
+    index++;
+
+    return 0;
+}
+
+static int display_drm_show(void *handle, void *data, int width, int height, int fourcc)
+{
+    drm_dev_t *drm_dev = (drm_dev_t*)handle;
+    struct drm_buffer *buf;
+    static unsigned index = 0;
+
+    buf = &drm_dev->bufs[index & 0x01];
+
+    if ((buf->width != width) || (buf->height != height)) {
+        display_drm_adaptive_resoultion(drm_dev, width, height);
+    }
+
+    switch(fourcc) {
+        case V4L2_PIX_FMT_NV16:
+            nv16_to_rgb32(buf->fb_base, data, width, height);
+            break;
+        case V4L2_PIX_FMT_YUYV:
+            yuyv_to_rgb32(buf->fb_base, data, width, height);
+            break;
+        case V4L2_PIX_FMT_NV12:
+            nv12_to_rgb32(buf->fb_base, data, width, height);
+            break;
+        case V4L2_PIX_FMT_P010:
+            p010_to_rgb32(buf->fb_base, data, width, height, true);
+            break;
+        case V4L2_PIX_FMT_BGR24:
+            bgr24_to_rgb32(buf->fb_base, data, width, height);
+            break;
+        case V4L2_PIX_FMT_SBGGR8:
+        case V4L2_PIX_FMT_SGBRG8:
+        case V4L2_PIX_FMT_SGRBG8:
+        case V4L2_PIX_FMT_SRGGB8:
+            raw8_to_rgb32(buf->fb_base, data, width, height);
+            break;
+        case V4L2_PIX_FMT_SBGGR10:
+        case V4L2_PIX_FMT_SGBRG10:
+        case V4L2_PIX_FMT_SGRBG10:
+        case V4L2_PIX_FMT_SRGGB10:
+            raw16_to_rgb32(buf->fb_base, data, width, height, 10);
+            break;
+        case V4L2_PIX_FMT_SBGGR12:
+        case V4L2_PIX_FMT_SGBRG12:
+        case V4L2_PIX_FMT_SGRBG12:
+        case V4L2_PIX_FMT_SRGGB12:
+            raw16_to_rgb32(buf->fb_base, data, width, height, 12);
+            break;
+        default:
+            printf("%s: Unsupported format: %d\n", __func__, fourcc);
+            return -1;
+    }
+
+    drmModeSetCrtc(drm_dev->fd, drm_dev->crtc_id, buf->fb, 0, 0, &drm_dev->conn, 1, &drm_dev->mode);
+    index++;
+
+    return 0;
+}
+
+struct display_ops drm_display_ops = {
+    .open = display_drm_open,
+    .close = display_drm_close,
+    .show = display_drm_show,
+    .show_mp = display_drm_show_mp,
+};

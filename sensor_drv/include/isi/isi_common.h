@@ -138,8 +138,8 @@ typedef enum IsiSensorInputFormat_e
     ISI_FORMAT_RAW_16,             //!< RAW_16
     ISI_FORMAT_RAW_20,             //!< RAW_20
     ISI_FORMAT_RAW_24,             //!< RAW_24
-    ISI_FORMAT_MONO_8              //!< MONO_8
-
+    ISI_FORMAT_MONO_8,             //!< MONO_8
+    ISI_FORMAT_RGB888              //!< RGB888
 } IsiSensorInputFormat_t;
 
 

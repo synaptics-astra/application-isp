@@ -37,4 +37,4 @@ target_link_libraries(
     mc_media_device
 )
 
-#add_subdirectory(video_test)
+add_subdirectory(isp_video_test)

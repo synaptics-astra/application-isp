@@ -50,6 +50,8 @@ CREATE_TRACER(SENSOR_DRV_ERROR , "SENSOR_ERROR: ", ERROR, 1);
 extern IsiCamDrvConfig_t IMX258_IsiCamDrvConfig;
 extern IsiCamDrvConfig_t IMX415_IsiCamDrvConfig;
 extern IsiCamDrvConfig_t OV5647_IsiCamDrvConfig;
+extern IsiCamDrvConfig_t IMX477_IsiCamDrvConfig;
+extern IsiCamDrvConfig_t DummySensor_IsiCamDrvConfig;
 #endif
 
 
@@ -71,6 +73,8 @@ RESULT SensorDrvConfigMapping
         {"imx258" , &IMX258_IsiCamDrvConfig },
         {"imx415" , &IMX415_IsiCamDrvConfig },
         {"ov5647" , &OV5647_IsiCamDrvConfig },
+        {"imx477" , &IMX477_IsiCamDrvConfig },
+        {"dummysensor" , &DummySensor_IsiCamDrvConfig },
 #endif
     };
 

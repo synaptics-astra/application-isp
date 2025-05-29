@@ -187,7 +187,6 @@ static uint16_t OV5647_mipi2lane_480p_init[][2] =
 //1920x1080
 static uint16_t OV5647_mipi2lane_1080p_init[][2] =
 {
-    // TODO: Fix 2k playback issue
     {0x0100, 0x00},
     {0x0103, 0x01},
     {0x3034, 0x1a},
@@ -196,7 +195,7 @@ static uint16_t OV5647_mipi2lane_1080p_init[][2] =
     {0x303c, 0x11},
     {0x3106, 0xf5},
     {0x3821, 0x06},
-    {0x3820, 0x00},
+    {0x3820, 0x42},
     {0x3827, 0xec},
     {0x370c, 0x03},
     {0x3612, 0x5b},
@@ -278,20 +277,6 @@ static uint16_t OV5647_mipi2lane_1080p_init[][2] =
     {0x350b, 0x64},// gain MSb
     {0x3501, 0x50},// exposure MSb
 };
-
-//2560x1440
-static uint16_t OV5647_mipi2lane_1440p_init[][2] =
-{
-    // TODO: Add support for 2560x1440
-    {0x0100, 0x00},
-};
-#if 0
-//2592x1944
-static uint16_t OV5647_mipi2lane_1944p_init[][2] =
-{
-    {0x0100, 0x00},
-};
-#endif
 
 #ifdef __cplusplus
 }

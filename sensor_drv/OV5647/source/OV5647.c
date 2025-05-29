@@ -65,38 +65,13 @@ static IsiSensorMode_t pov5647_mode_info[] = {
             .intTimeDelayFrame = 1,
             .gainDelayFrame = 1,
         },
-        .fps      = 16 * ISI_FPS_QUANTIZE,
+        .fps      = 30 * ISI_FPS_QUANTIZE,
         .hdrMode = ISI_SENSOR_MODE_LINEAR,
         .bitWidth = 10,
-        .bayerPattern = ISI_BPAT_BGGR,
+        .bayerPattern = ISI_BPAT_GRBG,
         .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
         .mipiLane = ISI_MIPI_2LANES,
         .dphyFreq = 408000,
-    },
-    {
-        .index     = 2,
-        .size      = {
-            .boundsWidth  = 2560,
-            .boundsHeight = 1440,
-            .top           = 0,
-            .left          = 0,
-            .width         = 2560,
-            .height        = 1440,
-        },
-        .aeInfo    = {
-            .intTimeDelayFrame = 1,
-            .gainDelayFrame = 1,
-        },
-        .fps      = 30 * ISI_FPS_QUANTIZE,
-        .hdrMode = ISI_SENSOR_MODE_LINEAR,
-        .nativeMode = ISI_SENSOR_NATIVE_DCG,
-        .bitWidth = 12,
-        .compress.enable = 1,
-        .compress.xBit  = 16,
-        .compress.yBit  = 12,
-        .bayerPattern = ISI_BPAT_GBRG,
-        .afMode = ISI_SENSOR_AF_MODE_NOTSUPP,
-        .mipiLane = ISI_MIPI_2LANES,
     },
 };
 
@@ -353,11 +328,6 @@ static RESULT OV5647_IsiOpenIss(IsiSensorHandle_t handle, uint32_t mode)
             case 1: //2k
                 for (int i = 0; i<sizeof(OV5647_mipi2lane_1080p_init) / sizeof(OV5647_mipi2lane_1080p_init[0]); i++) {
                     OV5647_IsiWriteRegIss(handle, OV5647_mipi2lane_1080p_init[i][0], OV5647_mipi2lane_1080p_init[i][1]);
-                }
-                break;
-            case 2: //native 2dol mode
-                for (int i = 0; i<sizeof(OV5647_mipi2lane_1440p_init) / sizeof(OV5647_mipi2lane_1440p_init[0]); i++) {
-                    OV5647_IsiWriteRegIss(handle, OV5647_mipi2lane_1440p_init[i][0], OV5647_mipi2lane_1440p_init[i][1]);
                 }
                 break;
             default:

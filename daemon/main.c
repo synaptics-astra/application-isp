@@ -24,6 +24,17 @@ static void SignalHandler(int Signum);
 extern int MediaDeviceCreate(int Dev);
 extern int MediaDeviceRelease(int Dev);
 
+#ifdef DOLPHIN
+extern int mcmWrFrameDebugEnable;
+void help(void)
+{
+    printf("Usage:\n");
+    printf("\t./isp_media_server -d\n");
+    printf("\t-d  enable MCM frame dump\n");
+    return;
+}
+#endif
+
 int main(int argc, char **argv)
 {
     int RetVal = VSI_SUCCESS;
@@ -33,6 +44,20 @@ int main(int argc, char **argv)
     printf("ISP MediaControl Framework V%s (%s, %s)",
                     MEDIA_SERVER_VERSION, __DATE__, __TIME__);
     printf("**************************************************************");
+
+#ifdef DOLPHIN
+    int Ch;
+    while((Ch = getopt(argc, argv, "d")) != -1) {
+        switch(Ch) {
+            case 'd':
+                printf("\nMCM WR frame dump enabled\n");
+                mcmWrFrameDebugEnable = 1;
+                break;
+            default:
+                help();
+        }
+    }
+#endif
 
     struct sigaction SigAct;
     SigAct.sa_handler = SignalHandler;

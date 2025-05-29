@@ -37,7 +37,7 @@ extern "C"
 #ifdef DOLPHIN
 /* TODO: Check bufType
 * Use ring buffer when IOMMU is disabled. Otherwise, use normal buffer */
-#define IS_RING_BUFFER_MODE(bufType) 1
+#define IS_RING_BUFFER_MODE(bufType) 0
 #define MCM_RING_BUFFER_LEN 5
 #endif
 

@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>EffectsContent.qml</file>
+        <file>SettingContent.qml</file>
+        <file>PhotoSetting.qml</file>
+        <file>VideoSetting.qml</file>
+        <file>BottomRectangle.qml</file>
+        <file>StreamSetting.qml</file>
+        <file>yuv2rgb.vert</file>
+        <file>yuv2rgb.frag</file>
+        <file>yuv2rgb_semiplannar.frag</file>
+        <file>Preview.qml</file>
+        <file>ROI.qml</file>
+    </qresource>
+</RCC>

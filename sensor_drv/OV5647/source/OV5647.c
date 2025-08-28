@@ -420,8 +420,8 @@ static RESULT OV5647_IsiReleaseIss(IsiSensorHandle_t handle)
 
     if (pOV5647Ctx == NULL) return (RET_WRONG_HANDLE);
 
-    HalI2cClose(pOV5647Ctx->isiCtx.halI2cHandle);
     (void)HalDelRef(pOV5647Ctx->isiCtx.halI2cHandle, HAL_DEV_I2C);
+    HalI2cClose(pOV5647Ctx->isiCtx.halI2cHandle);
 
     MEMSET(pOV5647Ctx, 0, sizeof(OV5647_Context_t));
     free(pOV5647Ctx);

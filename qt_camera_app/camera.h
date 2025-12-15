@@ -3,6 +3,10 @@
 
 #include <VideoStreamer.h>
 #include <linux/videodev2.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <nv12_frame.h>
+
 #define SUPPORT_V4L2_MPLANE 1
 #define MAX_PLANES 2
 
@@ -37,12 +41,21 @@ class Camera : public VideoStreamer
         virtual ~Camera();
         ImageStream *m_image;
 
+#ifdef DOLPHIN
         static const int CAPTURE_MAX_BUFFER = 8;
+#else
+        static const int CAPTURE_MAX_BUFFER = 4;
+#endif
         static const int MAX_NUM_OF_V4L2_DEVICES = 32;
         unsigned int device_id;
         unsigned int used_device_id;
         int m_height;
         int m_width;
+
+        struct plane_map {
+            void *addr = nullptr;
+            size_t len = 0;
+        };
 
         struct buf_info{
             int index;
@@ -53,9 +66,12 @@ class Camera : public VideoStreamer
         struct video_dev
         {
             int fd;
+            int y_stride;
+            int uv_stride;
             int cap_width, cap_height;
             struct buf_info buff_info[CAPTURE_MAX_BUFFER];
             int numbuffer;
+            plane_map mplanes[CAPTURE_MAX_BUFFER][MAX_PLANES];
         } videodev;
 
         struct plane
@@ -92,8 +108,8 @@ class Camera : public VideoStreamer
         void closeCapture();
         void fillBuffer(void* buff);
 
-        void updateTexture(const uchar *data, int width, int height);
-        virtual void textureProcess(const uchar *data, int width, int height);
+        void updateTexture(const NV12Frame *frame, int width, int height);
+        virtual void textureProcess(const NV12Frame *frame, int width, int height);
         virtual int subInitCapture() {return 0;}
 };
 

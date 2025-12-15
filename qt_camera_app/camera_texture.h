@@ -3,6 +3,7 @@
 
 #include <QSGTexture>
 #include <QOpenGLTexture>
+#include "nv12_frame.h"
 
 #define MAX_TEXTURE 2
 
@@ -27,7 +28,7 @@ class CameraTexture : public QSGTexture
         virtual bool hasMipmaps() const { return false; }
         virtual QSize textureSize() const { return QSize(mWidth, mHeight); }
 
-        void updateFrame(void *data);
+        void updateFrame(const NV12Frame *frame);
 
     private:
         int mWidth;

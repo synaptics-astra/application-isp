@@ -40,7 +40,9 @@ char g_output_path[256] = "";
 
 //#define ISP_CROP_SUPPORT
 //#define ISP_SCALE_SUPPORT
+#ifdef DOLPHIN
 #define MCM_RAW_DUMP_SUPPORT
+#endif
 
 static int v4l2_ctrl_set(int CamDevice, int ctrl_id, int ctrl_val)
 {
@@ -282,7 +284,7 @@ int main(int argc, char **argv)
         printf("Open camera device %s failed\n", CamDeviceName);
         return -1;
     }
-
+#ifdef DOLPHIN
     if (v4l2_ctrl_set(CamDevice, VVCAM_VIDEO_CID_IOMMU_ENABLED, iommu_enable) != 0) {
         printf("Set IOMMU failed \n");
         goto ErrCloseCamDevice;
@@ -292,6 +294,7 @@ int main(int argc, char **argv)
         printf("Set Raw frame dump failed \n");
         goto ErrCloseCamDevice;
     }
+#endif
 #endif
     struct v4l2_capability CamerCapbility;
     if (ioctl(CamDevice, VIDIOC_QUERYCAP, &CamerCapbility) != 0) {

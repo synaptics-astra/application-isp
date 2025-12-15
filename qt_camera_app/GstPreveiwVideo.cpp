@@ -20,11 +20,21 @@ void GstPreviewVideo::setSource(const QString &filePath, int m_framerate) {
 }
 
 void GstPreviewVideo::createPipeline(const QString &filePath, int m_framerate) {
+#if defined(KLAMATH)
+    QString pipelineStr = QString(
+            "filesrc location=\"%1\" ! "
+            "qtdemux name=demux demux.video_0 ! "
+            "h264parse ! avdec_h264 ! "
+            "videorate ! video/x-raw,framerate=%2/1 ! "
+            "videoconvert ! video/x-raw,format=RGB ! "
+            "appsink name=mysink max-buffers=2 drop=true sync=true")
+        .arg(filePath).arg(m_framerate);
+#elif defined(DOLPHIN)
     QString pipelineStr = QString("filesrc location=\"%1\" ! qtdemux name=demux demux.video_0 ! "
             "h264parse ! v4l2h264dec ! glupload ! glcolorconvert ! gldownload ! "
             "video/x-raw,format=RGB,framerate=%2/1 ! appsink name=mysink max-buffers=5 sync=true")
         .arg(filePath).arg(m_framerate);
-
+#endif
     QMutexLocker locker(&m_pipeline);
     GError *err = nullptr;
     pipeline = gst_parse_launch(pipelineStr.toUtf8().constData(), &err);
@@ -66,7 +76,6 @@ void GstPreviewVideo::pause() {
 
 void GstPreviewVideo::terminatePipeline() {
     QMutexLocker locker(&m_pipeline);
-
     if (pipeline) {
         gst_element_set_state(pipeline, GST_STATE_NULL);
         gst_object_unref(pipeline);
@@ -111,12 +120,15 @@ gboolean GstPreviewVideo::busCall(GstBus *bus, GstMessage *msg, gpointer user_da
 
 void GstPreviewVideo::run() {
     QMutexLocker locker(&m_pipeline);
-    if (sink) {
+    if (pipeline)
         gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    locker.unlock();
+
+    if (sink) {
         GstSample *sample;
 
         while (!stop) {
-            sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
+            sample = gst_app_sink_try_pull_sample(GST_APP_SINK(sink), 100 * GST_MSECOND);
             if (sample) {
                 GstBuffer *buffer = gst_sample_get_buffer(sample);
                 GstMapInfo map;
@@ -130,8 +142,8 @@ void GstPreviewVideo::run() {
 
                     QImage image = QImage(map.data, width, height, QImage::Format_RGB888).copy();
                     emit frameReady(image);
+                    gst_buffer_unmap(buffer, &map);
                 }
-                gst_buffer_unmap(buffer, &map);
                 gst_sample_unref(sample);
             } else {
                 if (gst_app_sink_is_eos(GST_APP_SINK(sink))) {

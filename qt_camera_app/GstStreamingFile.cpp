@@ -28,11 +28,25 @@ void GstStreamingFileStreaming::createPipeline(int m_width, int m_height, int m_
 
     try {
         /*Get pipeline handle*/
-        QString pipeline_str = QString("appsrc name=myappsrc ! rawvideoparse use-sink-caps=false "
-                "disable-passthrough=false width=%1 height=%2 format=nv12 framerate=%3/1 ! "
-                "videoconvert ! v4l2h264enc extra-controls=c,video_bitrate=20000 ! "
-                "video/x-h264, profile=\"high\", level=(string)4.2 ! "
-                "h264parse config-interval=-1 ! ").arg(m_width).arg(m_height).arg(m_framerate);
+#if defined(KLAMATH)
+        QString pipeline_str = QString(
+                "appsrc name=myappsrc is-live=true format=time do-timestamp=true ! "
+                "rawvideoparse use-sink-caps=true width=%1 height=%2 framerate=%3/1 ! "
+                "x264enc bitrate=20000 speed-preset=ultrafast tune=zerolatency "
+                "key-int-max=30 byte-stream=false ! "
+                "h264parse config-interval=1 ! "
+                "video/x-h264, profile=(string)high, level=(string)4.1, "
+                "stream-format=(string)avc, alignment=(string)au ! "
+            ).arg(m_width).arg(m_height).arg(m_framerate);
+#elif defined(DOLPHIN)
+        QString pipeline_str = QString(
+                "appsrc name=myappsrc is-live=true format=time do-timestamp=true ! "
+                "rawvideoparse use-sink-caps=true width=%1 height=%2 framerate=%3/1 ! "
+                "v4l2h264enc extra-controls=c,video_bitrate=20000 ! "
+                "h264parse config-interval=1 ! "
+            ).arg(m_width).arg(m_height).arg(m_framerate);
+#endif
+
 
         pipeline_str += m_file_format + "mux ! filesink name=myfilesink location=/tmp/"
             + m_file_name +"."+ m_file_format;

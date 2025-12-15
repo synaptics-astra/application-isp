@@ -12,6 +12,12 @@ TEMPLATE = app
 DEFINES += QT_NO_DEBUG_OUTPUT strip
 QMAKE_CXXFLAGS += -W
 
+contains(CONFIG, DOLPHIN) {
+    DEFINES += DOLPHIN
+} else: contains(CONFIG, KLAMATH) {
+    DEFINES += KLAMATH
+}
+
 # Sources and Headers
 SOURCES += main.cpp \
     camera.cpp \
@@ -37,6 +43,7 @@ SOURCES += main.cpp \
 
 HEADERS += \
     camera.h\
+    nv12_frame.h \
     CapturePhoto.h \
     CaptureVideo.h \
     GstPhoto.h \
@@ -74,6 +81,7 @@ unix:LIBS += -lgstreamer-1.0 \
     -lglib-2.0 \
     -lgobject-2.0 \
     -lgstapp-1.0 \
+    -lgstvideo-1.0
 
 # Qml Files
 OTHER_FILES += main.qml

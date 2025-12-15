@@ -3,7 +3,8 @@
 #include <QDebug>
 
 GstStreamingRTP::GstStreamingRTP(QObject *parent)
-    : GstStreaming(parent), m_remote_ip(DEFAULT_IP), m_remote_port(DEFAULT_PORT)
+    : GstStreaming(parent), m_remote_ip(DEFAULT_IP), m_remote_port(DEFAULT_PORT),
+    m_remote_bitrate(DEFAULT_BITRATE)
 {
     /* Initialize GStreamer */
     gst_init (NULL, NULL);
@@ -19,24 +20,31 @@ void GstStreamingRTP::createPipeline(int m_width, int m_height, int m_framerate)
     m_pipeline.lock();
     GError *error = NULL;
     /*Get pipeline handle*/
-#ifdef SUPPORT_SOFT_H264ENC
-    pipeline = gst_parse_launch("appsrc name=myappsrc ! rawvideoparse use-sink-caps=false "
-            "width=1920 height=1080 format=nv12 framerate=30/1 ! x264enc key-int-max=30  "
-            "speed-preset=veryfast tune=zerolatency sliced-threads=true threads=6 ! "
-            "h264parse config-interval=-1 ! rtph264pay ! udpsink  name=myudpsink", &error);
-#else
-    QString pipeline_str = QString("appsrc name=myappsrc ! rawvideoparse use-sink-caps=false "
+#if defined(KLAMATH)
+    QString pipeline_str = QString(
+            "appsrc name=myappsrc ! "
+            "rawvideoparse use-sink-caps=true "
+            "width=%1 height=%2 format=nv12 framerate=%3/1 ! "
+            "x264enc bitrate=%4 speed-preset=ultrafast tune=zerolatency "
+            "key-int-max=30 bframes=0 byte-stream=true "
+            "sliced-threads=true threads=0 ! "
+            "h264parse config-interval=1 ! "
+            "video/x-h264,stream-format=(string)byte-stream,"
+            "alignment=(string)au,profile=(string)high ! "
+            "rtph264pay pt=96 config-interval=1 ! "
+            "udpsink name=myudpsink sync=false async=false"
+        ).arg(m_width).arg(m_height).arg(m_framerate).arg(m_remote_bitrate);
+#elif defined(DOLPHIN)
+    QString pipeline_str = QString("appsrc name=myappsrc ! rawvideoparse use-sink-caps=true "
             "disable-passthrough=false width=%1 height=%2 format=nv12 framerate=%3/1 ! "
             "videorate ! video/x-raw,framerate=%3/1 ! v4l2h264enc "
             "extra-controls=\"c,video_bitrate=30000, video_gop_size=20\" ! "
             "video/x-h264, profile=high, level=(string)4.2, framerate=%3/1 ! "
-            "h264parse config-interval=-1 ! rtph264pay ! udpsink  name=myudpsink sync=false")
-        .arg(m_width).arg(m_height).arg(m_framerate);
-
+            "h264parse config-interval=-1 ! rtph264pay ! udpsink  name=myudpsink sync=false"
+        ).arg(m_width).arg(m_height).arg(m_framerate);
+#endif
     QMutexLocker locker(&m_close_mutex);
     pipeline = gst_parse_launch(pipeline_str.toUtf8().constData(), &error);
-#endif
-
     if(pipeline == NULL){
         qWarning() << "Error: "<<__func__ << "failed to create pipeline :" <<error->message << "\n";
         m_pipeline.unlock();
@@ -64,7 +72,6 @@ void GstStreamingRTP::createPipeline(int m_width, int m_height, int m_framerate)
     g_object_set (G_OBJECT(udpsink), "port", m_remote_port, NULL);
 
     appsrc = gst_bin_get_by_name (GST_BIN(pipeline), "myappsrc");
-
     if(appsrc == NULL){
         qWarning() <<"Error: "<<__func__ << "Failed : to get appsrc\n";
         m_pipeline.unlock();

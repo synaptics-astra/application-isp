@@ -45,7 +45,7 @@ void RDKCamera::setV4l2Immu(int device_id, bool value)
 int RDKCamera::subInitCapture()
 {
     int device_id = getDeviceId();
-    setV4l2Immu(device_id, 0);
+    setV4l2Immu(device_id, 1);
 
     int err, fd = videodev.fd;
 
@@ -53,12 +53,9 @@ int RDKCamera::subInitCapture()
     struct v4l2_fmtdesc ffmt;
     memset(&ffmt, 0, sizeof(ffmt));
     ffmt.index = 0;
-    __u32 type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    __u32 pixelformat = V4L2_PIX_FMT_NV12;
+    __u32 type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    __u32 pixelformat = V4L2_PIX_FMT_NV12M;
 
-#if SUPPORT_V4L2_MPLANE
-    type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-#endif
     ffmt.type = type;
     support_fmt = false;
     qWarning()<< "Required " << pixelformat;
@@ -76,7 +73,7 @@ int RDKCamera::subInitCapture()
         }
         if (!support_fmt) {
 #ifdef SUPPORT_NV12_STREAMING
-            qWarning() << "V4L2_PIX_FMT_NV12 is not supported by this camera";
+            qWarning() << "V4L2_PIX_FMT_NV12M is not supported by this camera";
 #else
             qWarning() << "V4L2_PIX_FMT_YUYV is not supported by this camera";
 #endif
@@ -104,11 +101,13 @@ int RDKCamera::subInitCapture()
 #if SUPPORT_V4L2_MPLANE
         fmt.fmt.pix_mp.width = m_width;
         fmt.fmt.pix_mp.height = m_height;
-        fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12;
-        fmt.fmt.pix_mp.num_planes = 1;
+        fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12M;
+        fmt.fmt.pix_mp.num_planes = MAX_PLANES;
 
         fmt.fmt.pix_mp.plane_fmt[0].bytesperline = m_width;
-        fmt.fmt.pix_mp.plane_fmt[0].sizeimage = (3 * m_width * m_height)/2;
+        fmt.fmt.pix_mp.plane_fmt[0].sizeimage = (m_width * m_height);
+        fmt.fmt.pix_mp.plane_fmt[1].bytesperline = m_width;
+        fmt.fmt.pix_mp.plane_fmt[1].sizeimage = (m_width * m_height) / 2;
 #else
         fmt.fmt.pix.width = m_width;
         fmt.fmt.pix.height = m_height;
@@ -129,9 +128,9 @@ int RDKCamera::subInitCapture()
         if ((err = ioctl(fd, VIDIOC_G_FMT, &fmt)) < 0)
             qWarning() << "VIDIOC_G_FMT fail" << strerror(errno);
         else
-            qWarning() << "fmt width =" << fmt.fmt.pix.width
-                << " height =" << fmt.fmt.pix.height
-                << " pfmt =" << fmt.fmt.pix.pixelformat;
+            qWarning() << "fmt width =" << fmt.fmt.pix_mp.width
+                << " height =" << fmt.fmt.pix_mp.height
+                << " pfmt =" << fmt.fmt.pix_mp.pixelformat;
 #if SUPPORT_V4L2_MPLANE
         Q_ASSERT(fmt.fmt.pix_mp.width == m_width);
         Q_ASSERT(fmt.fmt.pix_mp.height == m_height);
@@ -157,17 +156,22 @@ int RDKCamera::subInitCapture()
 #if SUPPORT_V4L2_MPLANE
         videodev.cap_width = fmt.fmt.pix_mp.width;
         videodev.cap_height = fmt.fmt.pix_mp.height;
+        videodev.y_stride = fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
+        videodev.uv_stride = fmt.fmt.pix_mp.plane_fmt[1].bytesperline;
+
 #else
         videodev.cap_width = fmt.fmt.pix.width;
         videodev.cap_height = fmt.fmt.pix.height;
+        videodev.y_stride = fmt.fmt.pix.bytesperline;
+        videodev.uv_stride = fmt.fmt.pix.bytesperline;
 #endif
 
         return 0;
     }
 
-    void RDKCamera::textureProcess(const uchar *data, int width, int height)
+    void RDKCamera::textureProcess(const NV12Frame *frame, int width, int height)
     {
-#ifdef SUPPORT_NV12_STREAMING
-        m_image->yuv2rgb(data, width, height);
-#endif
+        Q_UNUSED(width);
+        Q_UNUSED(height);
+        m_image->pushBackImage(const_cast<NV12Frame*>(frame));
     }

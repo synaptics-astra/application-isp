@@ -22,6 +22,7 @@ void StreamingServer::SetCameraPlayer(QObject* obj, int width, int height, int f
     connect(mp_camera_player, &CameraPlayer::updateStream, this, &StreamingServer::updateStreamingServer);
     connect(this, &StreamingServer::portChanged, mp_gst_streaming, &GstStreaming::update);
     connect(this, &StreamingServer::addrChanged, mp_gst_streaming, &GstStreaming::update);
+    connect(this, &StreamingServer::bitrateChanged, mp_gst_streaming, &GstStreaming::update);
     connect(mp_camera_player, &CameraPlayer::frameWidthChanged, this, &StreamingServer::updateWidth);
     connect(mp_camera_player, &CameraPlayer::frameHeightChanged, this, &StreamingServer::updateHeight);
     connect(mp_camera_player, &CameraPlayer::frameRateChanged, this, &StreamingServer::updateFramerate);
@@ -75,5 +76,19 @@ void StreamingServer::setAddr(QString val)
     if (val != addr) {
         mp_gst_streaming->setRemoteIP(val);
         emit addrChanged(val);
+    }
+}
+
+unsigned short StreamingServer::bitrate()const
+{
+    return mp_gst_streaming->getRemoteBitrate();
+}
+
+void StreamingServer::setBitrate(unsigned short val)
+{
+    unsigned short bitrate  = mp_gst_streaming->getRemoteBitrate();
+    if (val != bitrate) {
+        mp_gst_streaming->setRemoteBitrate(val);
+        emit bitrateChanged(val);
     }
 }

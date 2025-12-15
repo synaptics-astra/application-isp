@@ -24,6 +24,9 @@
 #define OV_HEIGHT 480
 #define OV_FRAMERATE 60
 
+#ifdef DOLPHIN
+static constexpr bool isDolphin = true;
+
 void readSensorConfig(int &width, int &height, int &framerate) {
     QFile file("/proc/vsi/isp_subdev0");
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -55,6 +58,9 @@ void readSensorConfig(int &width, int &height, int &framerate) {
 
     file.close();
 }
+#else
+static constexpr bool isDolphin = false;
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -75,13 +81,14 @@ int main(int argc, char *argv[])
     int width = DEFAULT_WIDTH;
     int height = DEFAULT_HEIGHT;
     int framerate = DEFAULT_FRAMERATE;
-
+#ifdef DOLPHIN
     readSensorConfig(width, height, framerate);
-
+#endif
     engine.rootContext()->setContextProperty("windowHeight", height);
     engine.rootContext()->setContextProperty("windowWidth", width);
     engine.rootContext()->setContextProperty("cameraFps", framerate);
     engine.rootContext()->setContextProperty("defaultWidth", DEFAULT_WIDTH);
+    engine.rootContext()->setContextProperty("platform", isDolphin);
 
     const QUrl url(QStringLiteral("qrc:/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

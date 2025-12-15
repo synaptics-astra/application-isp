@@ -1,5 +1,7 @@
 #include "camera_texture.h"
-
+#include <QByteArray>
+#include <QDebug>
+#include <cstring>
 #ifdef YUV_SEMIPLANNER_SHADER
 CameraTexture::CameraTexture(int width, int height)
     : mWidth(width), mHeight(height)
@@ -28,21 +30,34 @@ CameraTexture::~CameraTexture()
     }
 }
 
-void CameraTexture::updateFrame(void *data)
+void CameraTexture::updateFrame(const NV12Frame *frame)
 {
-    unsigned char* uv = (unsigned char*) data + (mWidth * mHeight);
-    //Set UV data
+    if (!frame || !frame->y || !frame->uv) return;
+
+    const int W = mWidth;
+    const int H = mHeight;
+
+    const int yStrideBytes  = frame->y_stride  > 0 ? frame->y_stride  : W;
+    const int uvStrideBytes = frame->uv_stride > 0 ? frame->uv_stride : W;
+
+    if ((uvStrideBytes & 1) != 0) return;
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
     glBindTexture(GL_TEXTURE_2D, mTexture[1]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth/2, mHeight/2, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, uv);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, uvStrideBytes / 2);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                    W/2, H/2, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, frame->uv);
     glBindTexture(GL_TEXTURE_2D, 0);
-    //Set Y data
+
     glBindTexture(GL_TEXTURE_2D, mTexture[0]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, yStrideBytes);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                    W, H, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame->y);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 }
 #else
 CameraTexture::CameraTexture(int width, int height)

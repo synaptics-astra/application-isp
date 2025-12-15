@@ -11,8 +11,13 @@
 #include <sys/mman.h>
 #include <string.h>
 
+#include <stdlib.h>
+
 #include <QDebug>
 #include <QSGGeometryNode>
+
+#define PLANE_Y  0
+#define PLANE_UV 1
 
 Camera* Camera::mCamera=nullptr;
 
@@ -138,31 +143,34 @@ void Camera::run()
         closeCapture();
     }
 }
-void Camera::textureProcess(const uchar *data, int width, int height)
+void Camera::textureProcess(const NV12Frame *data, int width, int height)
 {
     Q_UNUSED(data);
     Q_UNUSED(width);
     Q_UNUSED(height);
 }
 
-void Camera::updateTexture(const uchar *data, int width, int height)
+void Camera::updateTexture(const NV12Frame *frame, int width, int height)
 {
-    if (!m_running || !data)
+    if (!m_running || !frame)
         return;
 
-    textureProcess(data, width, height);
+    textureProcess(frame, width, height);
     //m_rtp_streaming->sendDataRemote(const_cast<uchar*>(data), (width * height * 3)/2);
 #ifndef USE_QUEUE_HOLDER
     m_image->swapImage();
 #endif
-    emit imageChanged(const_cast<uchar*>(data), (width * height * 3)/2);
+    emit imageChanged(reinterpret_cast<uchar*>(const_cast<NV12Frame*>(frame)), 0);
 }
 
 void Camera::updateMaterial()
 {
-    uchar* buffer = m_image->getFrontImage();
-    m_texture->updateFrame(buffer);
-    fillBuffer(buffer);
+    NV12Frame *f = m_image->getFrontImage(); //todo: return type should be NV12Frame
+    if (!f)
+        return;
+
+    m_texture->updateFrame(f);
+    fillBuffer(f);
 }
 
 void Camera::vidioc_enuminput(int fd)
@@ -215,9 +223,11 @@ int Camera::initCapture()
 
         //Is this a vvcam driver,
         std::string str((char*)cap.driver);
-        int x  = str.find("vvcam");
+        bool vvcam_driver  = (str.find("vvcam") != std::string::npos);
+        bool camera_video_driver  = (str.find("camera-video") != std::string::npos);
+        bool is_valid_driver = (vvcam_driver || camera_video_driver);
 
-        if(x < 0) {
+        if (!is_valid_driver) {
             qDebug() << "Not the valid driver \n" ;
             continue;
         }
@@ -226,7 +236,7 @@ int Camera::initCapture()
         setDeviceId(id);
         videodev.fd = fd;
         if ((err = subInitCapture()) < 0) {
-            qDebug() << "Format not supported.............";
+            qDebug() << "Format not supported.";
             continue;
         }
         break;
@@ -241,15 +251,17 @@ int Camera::initCapture()
     reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     reqbuf.memory = V4L2_MEMORY_MMAP;
 
-    if ((err = ioctl(fd, VIDIOC_REQBUFS, &reqbuf)) < 0) {
-        qWarning() << "Cannot allocate memory";
+    if ((err = ioctl(videodev.fd, VIDIOC_REQBUFS, &reqbuf)) < 0) {
+        qWarning() << "Cannot allocate memory, errno=" << errno << strerror(errno);
         goto err1;
     }
     videodev.numbuffer = reqbuf.count;
     qWarning() << "buffer actually allocated" << reqbuf.count;
+    if (videodev.numbuffer > CAPTURE_MAX_BUFFER)
+        videodev.numbuffer = CAPTURE_MAX_BUFFER;
 
     uint i;
-    for (i = 0; i < reqbuf.count; i++) {
+    for (i = 0; i < (uint)videodev.numbuffer; i++) {
         struct v4l2_buffer buf;
         struct v4l2_plane planes[2];
         memset(&buf, 0, sizeof(buf));
@@ -258,32 +270,36 @@ int Camera::initCapture()
         buf.type = reqbuf.type;
         buf.index = i;
         buf.memory = reqbuf.memory;
-        buf.length = 1;
-        err = ioctl(fd, VIDIOC_QUERYBUF, &buf);
+        buf.length = MAX_PLANES;
+
+        err = ioctl(videodev.fd, VIDIOC_QUERYBUF, &buf);
         Q_ASSERT(err == 0);
 
-        videodev.buff_info[i].index = i;
-#if SUPPORT_V4L2_MPLANE
-        videodev.buff_info[i].length = planes[0].length;
-        videodev.buff_info[i].start =
-            (uchar *)mmap(NULL, planes[0].length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, planes[0].m.mem_offset);
+        videodev.mplanes[i][PLANE_Y].len  = planes[PLANE_Y].length;
+        videodev.mplanes[i][PLANE_UV].len  = planes[PLANE_UV].length;
+        videodev.mplanes[i][PLANE_Y].addr =
+            mmap(NULL, planes[PLANE_Y].length, PROT_READ | PROT_WRITE, MAP_SHARED, videodev.fd, planes[PLANE_Y].m.mem_offset);
+        videodev.mplanes[i][PLANE_UV].addr =
+            mmap(NULL, planes[PLANE_UV].length, PROT_READ | PROT_WRITE, MAP_SHARED, videodev.fd, planes[PLANE_UV].m.mem_offset);
 
-        Q_ASSERT(videodev.buff_info[i].start != MAP_FAILED);
-        memset((void *) videodev.buff_info[i].start, 0x80,
-                videodev.buff_info[i].length);
+        if (videodev.mplanes[i][PLANE_Y].addr == MAP_FAILED ||
+            videodev.mplanes[i][PLANE_UV].addr == MAP_FAILED) {
+                qWarning() << "mmap failed for planes index=" << i
+                       << " y_off=" << planes[PLANE_Y].m.mem_offset
+                       << " uv_off=" << planes[PLANE_UV].m.mem_offset
+                       << " errno=" << errno << strerror(errno);
 
-#else
-        videodev.buff_info[i].length = buf.length;
-        videodev.buff_info[i].start =
-            (uchar *)mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
+            if (videodev.mplanes[i][PLANE_Y].addr && videodev.mplanes[i][PLANE_Y].addr != MAP_FAILED)
+                munmap(videodev.mplanes[i][PLANE_Y].addr, videodev.mplanes[i][PLANE_Y].len);
+            if (videodev.mplanes[i][PLANE_UV].addr && videodev.mplanes[i][PLANE_UV].addr != MAP_FAILED)
+                munmap(videodev.mplanes[i][PLANE_UV].addr, videodev.mplanes[i][PLANE_UV].len);
+			err = -errno;
+            goto err1;
+        }
 
-        Q_ASSERT(videodev.buff_info[i].start != MAP_FAILED);
-
-
-        memset((void *) videodev.buff_info[i].start, 0x80,
-                videodev.buff_info[i].length);
-#endif
-        err = ioctl(fd, VIDIOC_QBUF, &buf);
+		buf.m.planes[PLANE_Y].bytesused = videodev.cap_width * videodev.cap_height;
+        buf.m.planes[PLANE_UV].bytesused = (videodev.cap_width * videodev.cap_height) / 2;
+        err = ioctl(videodev.fd, VIDIOC_QBUF, &buf);
         Q_ASSERT(err == 0);
     }
 
@@ -318,13 +334,16 @@ int Camera::captureFrame()
     int ret;
     struct v4l2_buffer buf;
     struct v4l2_plane planes[2];
+    NV12Frame *frame = nullptr;
+    const uint8_t *y = nullptr, *uv = nullptr;
+    size_t y_len = 0, uv_len = 0;
 
     memset(&buf, 0, sizeof(buf));
     memset(&planes, 0, sizeof planes);
 #if SUPPORT_V4L2_MPLANE
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     buf.m.planes = planes;
-    buf.length = 1;
+    buf.length = MAX_PLANES;
 #else
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 #endif
@@ -338,18 +357,20 @@ int Camera::captureFrame()
         return ret;
     }
 
-    if (frame_count++ % frame_devisor == 0) {
-        updateTexture((uchar *)videodev.buff_info[buf.index].start, videodev.cap_width, videodev.cap_height);
-    }
+    y      = static_cast<const uint8_t*>(videodev.mplanes[buf.index][PLANE_Y].addr);
+    uv     = static_cast<const uint8_t*>(videodev.mplanes[buf.index][PLANE_UV].addr);
+    y_len  = videodev.mplanes[buf.index][PLANE_Y].len;
+    uv_len = videodev.mplanes[buf.index][PLANE_UV].len;
+    frame = new NV12Frame{ y, y_len, uv, uv_len, (int)buf.index,
+                videodev.y_stride ? videodev.y_stride : videodev.cap_width,
+                videodev.uv_stride ? videodev.uv_stride : videodev.cap_width
+    };
 
-#if 0
-    ret = ioctl(videodev.fd, VIDIOC_QBUF, &buf);
-    if (ret < 0) {
-        qWarning() << "Cap VIDIOC_QBUF";
-        return ret;
+    if (frame) {
+        if (frame_count++ % frame_devisor == 0) {
+            updateTexture(frame, videodev.cap_width, videodev.cap_height);
+        }
     }
-#endif
-
 
     return 0;
 }
@@ -375,14 +396,17 @@ int Camera::stopCapture()
 void Camera::closeCapture()
 {
     int i;
-    struct buf_info *buff_info;
+    int p;
 
-    /* Un-map the buffers */
     for (i = 0; i < CAPTURE_MAX_BUFFER; i++){
-        buff_info = &videodev.buff_info[i];
-        if (buff_info->start) {
-            munmap(buff_info->start, buff_info->length);
-            buff_info->start = NULL;
+        for (p = 0; p < MAX_PLANES; ++p) {
+            void*  addr = videodev.mplanes[i][p].addr;
+            size_t len  = videodev.mplanes[i][p].len;
+            if (addr && addr != MAP_FAILED && len) {
+                munmap(addr, len);
+            }
+            videodev.mplanes[i][p].addr = nullptr;
+            videodev.mplanes[i][p].len  = 0;
         }
     }
 
@@ -391,41 +415,32 @@ void Camera::closeCapture()
         videodev.fd = -1;
     }
 }
+
 void Camera::fillBuffer(void* buff)
 {
-    int i;
-    bool bFound = false;
-    struct buf_info *buff_info;
+    int ret;
+    struct v4l2_buffer vbuf;
+    struct v4l2_plane planes[2];
+    NV12Frame* f = static_cast<NV12Frame*>(buff);
 
+    if (!f) return;
 
-    /* Un-map the buffers */
-    for (i = 0; i < CAPTURE_MAX_BUFFER; i++){
-        buff_info = &videodev.buff_info[i];
-        if (buff_info->start == buff ) {
-            bFound = true;
-            break;
-        }
+    memset(&vbuf, 0, sizeof(vbuf));
+    memset(&planes, 0, sizeof(planes));
+
+    vbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    vbuf.m.planes = planes;
+    vbuf.length   = MAX_PLANES;
+
+    planes[0].bytesused = (unsigned)(videodev.cap_width * videodev.cap_height);
+    planes[1].bytesused = (unsigned)((videodev.cap_width * videodev.cap_height)/2);
+    vbuf.memory = V4L2_MEMORY_MMAP;
+    vbuf.index  = f->index;
+
+    ret = ioctl(videodev.fd, VIDIOC_QBUF, &vbuf);
+    if (ret < 0) {
+        qWarning() << "Cap VIDIOC_QBUF errno=" << errno << strerror(errno);
     }
-    if(bFound ==  true) {
-        int ret;
-        struct v4l2_buffer buf;
-        struct v4l2_plane planes[2];
 
-        memset(&buf, 0, sizeof(buf));
-        memset(&planes, 0, sizeof planes);
-#if SUPPORT_V4L2_MPLANE
-        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-#else
-        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-#endif
-        buf.memory = V4L2_MEMORY_MMAP;
-        buf.index  = i;
-        buf.length = 1;
-        buf.m.planes = planes;
-
-        ret = ioctl(videodev.fd, VIDIOC_QBUF, &buf);
-        if (ret < 0) {
-            qWarning() << "Cap VIDIOC_QBUF %d and str error %s" <<errno << strerror(errno);
-        }
-    }
+    delete f;
 }

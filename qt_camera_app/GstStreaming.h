@@ -11,12 +11,14 @@
 #include <sys/un.h>
 #include <sys/unistd.h>
 #include <gst/gst.h>
+#include <gst/video/video.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
 #include <QThread>
 #include <QMutex>
 #include <QWaitCondition>
 #include <QQueue>
+#include "nv12_frame.h"
 
 #define DEFAULT_IMAGE_FORMAT "png"
 #define DEFAULT_HEIGHT 1080
@@ -69,6 +71,11 @@ class GstStreaming : public QThread
         static void* loopFunc(void*);
         virtual void createPipeline(int width, int height, int framerate)=0;
         virtual void terminatePipeline()=0;
+        static bool copy_nv12_data(const NV12Frame *f,
+                int W, int H, int yStride, int uvStride,
+                GstBuffer *out);
+        static void attach_nv12_meta(GstBuffer *out, int W, int H);
+        static void set_buffer_timestamps(GstBuffer *out, int fps);
         void run();
         class StreamBuffer
         {

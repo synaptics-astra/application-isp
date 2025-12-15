@@ -55,6 +55,27 @@ ColumnLayout {
         }
     }
 
+    RowLayout {
+        Label {
+            text: "Bitrate"
+            font.bold: true
+            Layout.alignment: Qt.AlignVCenter
+            color: "white"
+        }
+        TextField {
+            id: remoteBitrateField
+            placeholderText: "Enter bitrate"
+            Layout.fillWidth: true
+            background: Rectangle {
+                color: "white"
+                border.color: "black"
+                opacity: 0.5
+                border.width: 1
+                radius: 5
+            }
+        }
+    }
+
     Rectangle {
         color: "transparent"
         Layout.fillHeight: true
@@ -82,11 +103,16 @@ ColumnLayout {
                 console.log("Invalid port number.");
                 server1.port = 8000;
             }
+
+            var bitrate = parseInt(remoteBitrateField.text);
+            if (!isNaN(bitrate) && bitrate > 0 && bitrate <= 62500) {
+                server1.bitrate = bitrate;
+            } else {
+                console.log("Invalid bitrate.");
+                server1.bitrate = 1000;
+            }
+
             server1.addr = remoteIpField.text
         }
     }
 }
-
-
-
-

@@ -27,29 +27,24 @@ ImageStream::~ImageStream()
 #endif
 }
 #ifdef USE_QUEUE_HOLDER
-uchar* ImageStream::getFrontImage()
+NV12Frame* ImageStream::getFrontImage()
 {
-    uchar* buffer;
+    NV12Frame* buffer = nullptr;
+
     mutex.lock();
     if(!m_queue.isEmpty())
         buffer = m_queue.dequeue();
-    else
-        buffer = empty_buffer;
     mutex.unlock();
+
     return buffer;
 }
-void ImageStream::pushBackImage(uchar* buffer)
+void ImageStream::pushBackImage(NV12Frame* buffer)
 {
     mutex.lock();
     m_queue.enqueue(buffer);
     mutex.unlock();
 }
-void ImageStream::yuv2rgb(const uchar *yuv, int yw, int yh)
-{
-    Q_UNUSED(yw);
-    Q_UNUSED(yh);
-    pushBackImage(const_cast<uchar*>(yuv));
-}
+
 #else
 void ImageStream::yuv2rgb(const uchar *yuv, int yw, int yh)
 {

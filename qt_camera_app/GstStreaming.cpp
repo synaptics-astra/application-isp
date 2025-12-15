@@ -158,41 +158,125 @@ void GstStreaming::setPipelineFlushed(bool val)
 void GstStreaming::sendDataRemote(uchar *data, int size)
 {
     m_wait_mutex.lock();
-    if (m_running == true && appsrc != NULL){
-        GstStreaming::StreamBuffer *streamBuffer = new GstStreaming::StreamBuffer(data, size);
+    if (m_running == true && appsrc != NULL) {
+        const NV12Frame *in = reinterpret_cast<const NV12Frame*>(data);
+        NV12Frame *f = new NV12Frame(*in);
+        GstStreaming::StreamBuffer *streamBuffer =
+            new GstStreaming::StreamBuffer(reinterpret_cast<uchar*>(f),
+                static_cast<int>(sizeof(NV12Frame)));
         m_queue.enqueue(streamBuffer);
         m_wait.wakeAll();
     }
     m_wait_mutex.unlock();
 }
 
+bool GstStreaming::copy_nv12_data(const NV12Frame *f,
+                                  int W, int H,
+                                  int yStride, int uvStride,
+                                  GstBuffer *out)
+{
+    GstMapInfo mi;
+    if (!gst_buffer_map(out, &mi, GST_MAP_WRITE))
+        return false;
+
+    const gsize yBytes = (gsize)W * H;
+
+    // Y plane
+    for (int r = 0; r < H; ++r) {
+        memcpy(mi.data + r * W, f->y + r * yStride, W);
+    }
+
+    // UV plane
+    guint8 *uvDst = mi.data + yBytes;
+    for (int r = 0; r < H / 2; ++r) {
+        memcpy(uvDst + r * W, f->uv + r * uvStride, W);
+    }
+
+    gst_buffer_unmap(out, &mi);
+    return true;
+}
+
+void GstStreaming::attach_nv12_meta(GstBuffer *out, int W, int H)
+{
+    gsize offsets[2] = { 0, (gsize)W * H };
+    gint  strides[2] = { W, W };
+    gst_buffer_add_video_meta_full(out,
+                                   GST_VIDEO_FRAME_FLAG_NONE,
+                                   GST_VIDEO_FORMAT_NV12,
+                                   W, H,
+                                   2,
+                                   offsets,
+                                   strides);
+}
+
+void GstStreaming::set_buffer_timestamps(GstBuffer *out, int fps)
+{
+    const GstClockTime dur = (fps > 0)
+        ? gst_util_uint64_scale_int(1, GST_SECOND, fps)
+        : GST_CLOCK_TIME_NONE;
+
+    static guint64 s_seq = 0;
+    const GstClockTime pts = (fps > 0) ? (s_seq * dur) : gst_util_get_timestamp();
+
+    GST_BUFFER_PTS(out)      = pts;
+    GST_BUFFER_DTS(out)      = GST_CLOCK_TIME_NONE;
+    GST_BUFFER_DURATION(out) = dur;
+    ++s_seq;
+}
+
 void GstStreaming::processDataRemote()
 {
-    GstBuffer *buffer = NULL;
-    GstMapInfo info;
     m_close_mutex.lock();
     m_processing = true;
     m_close_mutex.unlock();
 
     m_wait_mutex.lock();
-    // Ensure the thread processes the queue or waits if it's empty
     while (m_queue.isEmpty() && m_running == true)
         m_wait.wait(&m_wait_mutex);
     m_wait_mutex.unlock();
 
-    if (! m_queue.isEmpty()) {
+    if (!m_queue.isEmpty()) {
         GstStreaming::StreamBuffer *streamBuffer = m_queue.dequeue();
-        buffer = gst_buffer_new_allocate(NULL, streamBuffer->m_size, NULL);
-        if(buffer != NULL){
-            gst_buffer_map(buffer, &info, GST_MAP_WRITE);
-            memcpy((info.data), streamBuffer->m_buffer, streamBuffer->m_size);
-            gst_buffer_unmap(buffer, &info);
-            gst_app_src_push_buffer(GST_APP_SRC(appsrc), buffer);
-            ++frame_count;
+
+        const NV12Frame* f = reinterpret_cast<const NV12Frame*>(streamBuffer->m_buffer);
+        if (!f || !f->y || !f->uv || f->y_len == 0 || f->uv_len == 0) {
+            qWarning() << "GstStreaming: invalid NV12M frame";
+            delete streamBuffer;
         } else {
-            qWarning() <<"Error: "<<__func__ << "Failed to allocate gst_buffer\n";
+            const int W = m_width;
+            const int H = m_height;
+            const int yStride  = (f->y_stride  > 0) ? f->y_stride  : W;
+            const int uvStride = (f->uv_stride > 0) ? f->uv_stride : W;
+
+            const gsize total = (gsize)W * H + (gsize)W * (H / 2);
+
+            GstBuffer *out = gst_buffer_new_allocate(nullptr, total, nullptr);
+            if (!out) {
+                qWarning() << "GstStreaming: alloc failed";
+                delete f;
+                delete streamBuffer;
+            } else {
+                if (!copy_nv12_data(f, W, H, yStride, uvStride, out)) {
+                    qWarning() << "GstStreaming: copy failed";
+                    gst_buffer_unref(out);
+                    delete f;
+                    delete streamBuffer;
+                } else {
+                    attach_nv12_meta(out, W, H);
+                    set_buffer_timestamps(out, m_framerate);
+
+                    GstFlowReturn fr = gst_app_src_push_buffer(GST_APP_SRC(appsrc), out);
+                    if (G_UNLIKELY(fr != GST_FLOW_OK)) {
+                        qWarning() << "GstStreaming: appsrc push failed, flow =" << fr;
+                        gst_buffer_unref(out);
+                    } else {
+                        ++frame_count;
+                    }
+                    delete f;
+                    delete streamBuffer;
+                }
+            }
         }
-        delete streamBuffer;
     }
 
     m_close_mutex.lock();
@@ -200,6 +284,7 @@ void GstStreaming::processDataRemote()
     m_close.wakeAll();
     m_close_mutex.unlock();
 }
+
 void GstStreaming::kill()
 {
     if (m_running) {

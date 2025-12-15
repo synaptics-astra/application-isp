@@ -33,11 +33,11 @@ QString GstPhoto::defaultFileName() {
 void GstPhoto::createPipeline(int m_width, int m_height, int m_framerate) {
     GError *error = NULL;
 
-    QString pipeline_str = QString("appsrc name=myappsrc ! rawvideoparse use-sink-caps=false "
-            "width=%1 height=%2 format=nv12 framerate=%3/1 ! videoconvert ! ")
-        .arg(m_width).arg(m_height).arg(m_framerate);
+    QString pipeline_str = QString(
+            "appsrc name=myappsrc is-live=true format=time do-timestamp=true ! "
+            "videoconvert ! ");
     pipeline_str += m_photo_format + "enc ! filesink name=myfilesink location=/tmp/"
-        + m_file_name +"."+ m_photo_format;
+      + m_file_name + "." + m_photo_format;
 
     QMutexLocker locker(&m_close_mutex);
     pipeline = gst_parse_launch(pipeline_str.toUtf8().constData(), &error);
@@ -69,6 +69,15 @@ void GstPhoto::createPipeline(int m_width, int m_height, int m_framerate) {
     }
 
     g_object_set (G_OBJECT(appsrc), "num-buffers", 1, NULL);
+
+    GstCaps *caps = gst_caps_new_simple("video/x-raw",
+        "format",     G_TYPE_STRING, "NV12",
+        "width",      G_TYPE_INT,    m_width,
+        "height",     G_TYPE_INT,    m_height,
+        "framerate",  GST_TYPE_FRACTION, m_framerate, 1,
+        NULL);
+    gst_app_src_set_caps(GST_APP_SRC(appsrc), caps);
+    gst_caps_unref(caps);
 
     qInfo() << "Successfully created pipeline to store image frames";
 }

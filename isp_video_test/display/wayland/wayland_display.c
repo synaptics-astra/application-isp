@@ -671,6 +671,10 @@ int WlDisplay_showBuffer_mp(void *handle, void *data1, void *data2,
     pWindow->video_width = width;
     pWindow->video_height = height;
 
+    /* Mark buffer as busy before attaching to surface.
+     * The compositor will release it via buffer_release callback when done. */
+    pbuffer->busy = 1;
+
     wl_surface_attach(pWindow->surface, pbuffer->buf, 0, 0);
     wl_surface_damage(pWindow->surface, 0, 0,
             pWindow->display->format.width,
@@ -683,9 +687,15 @@ int WlDisplay_showBuffer_mp(void *handle, void *data1, void *data2,
     }
 
     wl_surface_commit(pWindow->surface);
-    wl_display_flush(pWindow->display->display);
-    wl_display_dispatch(pWindow->display->display);
-    pbuffer->busy = 1;
+
+    /* Synchronize with compositor using roundtrip to ensure proper buffer management.
+     * This waits for the compositor to process the frame and send buffer release events,
+     * preventing buffer exhaustion by matching our frame rate to the display rate. */
+    ret = wl_display_roundtrip(pWindow->display->display);
+    if (ret < 0) {
+        printf("%s: wl_display_roundtrip failed\n", __func__);
+        return -1;
+    }
 
     frameid++;
     frameid %= 4;

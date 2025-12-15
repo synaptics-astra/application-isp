@@ -368,7 +368,7 @@ ApplicationWindow {
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 20
-                        visible: true
+                        visible: platform
                         contentItem: Image {
                             source: "qrc:/Image/effect.png"
                             fillMode: Image.PreserveAspectFit

@@ -19,6 +19,16 @@ link_directories(
     ${CMAKE_SOURCE_DIR}/display/build
 )
 
+# Platform macro support - pass DOLPHIN or KLAMATH via cmake command line
+if(DEFINED DOLPHIN)
+    add_definitions(-DDOLPHIN)
+    message(STATUS "Platform: DOLPHIN")
+elseif(DEFINED KLAMATH)
+    add_definitions(-DKLAMATH)
+    message(STATUS "Platform: KLAMATH")
+else()
+    message(STATUS "No platform macro defined (use -DDOLPHIN or -DKLAMATH)")
+endif()
 
 add_executable(${module} ${SOURCES})
 

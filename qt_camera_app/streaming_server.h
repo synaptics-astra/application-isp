@@ -11,6 +11,7 @@ class StreamingServer : public QObject
     Q_OBJECT
     Q_PROPERTY(bool start READ start WRITE setStart NOTIFY startChanged)
     Q_PROPERTY(unsigned short port READ port WRITE setPort NOTIFY portChanged)
+    Q_PROPERTY(unsigned short bitrate READ bitrate WRITE setBitrate NOTIFY bitrateChanged)
     Q_PROPERTY(QString addr READ addr WRITE setAddr NOTIFY addrChanged)
     public:
         explicit StreamingServer(QObject *parent = 0);
@@ -20,6 +21,8 @@ class StreamingServer : public QObject
         void setStart(bool val);
         unsigned short port()const;
         void setPort(unsigned short val);
+        unsigned short bitrate()const;
+        void setBitrate(unsigned short val);
         QString addr()const;
         void setAddr(QString val);
     public slots:
@@ -31,6 +34,7 @@ class StreamingServer : public QObject
         void startChanged(bool);
         void portChanged(unsigned short);
         void addrChanged(QString);
+        void bitrateChanged(unsigned short);
     private:
         CameraPlayer *mp_camera_player;
         GstStreamingRTP *mp_gst_streaming;

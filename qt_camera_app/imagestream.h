@@ -2,6 +2,7 @@
 #define IMAGESTREAM_HPP
 
 #include <QMutex>
+#include "nv12_frame.h"
 #ifdef USE_QUEUE_HOLDER
 #include <QQueue>
 #endif
@@ -12,8 +13,8 @@ class ImageStream
         ImageStream(int width, int height);
         ~ImageStream();
 #ifdef USE_QUEUE_HOLDER
-        uchar *getFrontImage();
-        void pushBackImage(uchar*);
+        NV12Frame* getFrontImage();
+        void pushBackImage(NV12Frame* f);
 #else
         uchar *getFrontImage() { return data[front_index]; }
         uchar *getBackImage() { return data[(front_index + 1) % 2]; }
@@ -32,7 +33,7 @@ class ImageStream
 
     private:
 #ifdef USE_QUEUE_HOLDER
-        QQueue<uchar*> m_queue;
+        QQueue<NV12Frame*> m_queue;
         uchar *empty_buffer;
 #else
         int updated;

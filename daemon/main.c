@@ -25,6 +25,15 @@ extern int MediaDeviceCreate(int Dev);
 extern int MediaDeviceRelease(int Dev);
 
 #ifdef DOLPHIN
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <linux/media.h>
+
+#define MEDIA_DEV_MAX       8
+
 extern int mcmWrFrameDebugEnable;
 void help(void)
 {
@@ -32,6 +41,44 @@ void help(void)
     printf("\t./isp_media_server -d\n");
     printf("\t-d  enable MCM frame dump\n");
     return;
+}
+
+int findMediaDevId()
+{
+    int MediaDevFd;
+    int ret;
+    struct media_device_info info;
+    char MediaDevName[32];
+
+    for (int i = 0; i < MEDIA_DEV_MAX; i++) {
+        sprintf(MediaDevName, "/dev/media%d", i);
+
+        MediaDevFd = open(MediaDevName, O_RDWR);
+        MediaDevFd = open(MediaDevName, O_RDWR);
+        if (MediaDevFd < 0) {
+            printf("open %s error", MediaDevName);
+            return -1;
+        }
+
+        memset(&info, 0, sizeof(info));
+        ret = ioctl(MediaDevFd, MEDIA_IOC_DEVICE_INFO, &info);
+        if (ret) {
+            printf("Get media device info error %s!", strerror(-ret));
+            close(MediaDevFd);
+            return -1;
+        }
+        printf("media driver: %s\n",info.driver);
+        printf("media model: %s\n",info.model);
+
+        if (strcmp(info.driver, "vvcam-video") == 0) {
+            close(MediaDevFd);
+            printf("vvcam media Dev ID: %d\n", i);
+            return i;
+        }
+        close(MediaDevFd);
+    }
+
+    return 0;
 }
 #endif
 
@@ -46,6 +93,9 @@ int main(int argc, char **argv)
     printf("**************************************************************");
 
 #ifdef DOLPHIN
+    setvbuf(stdout, NULL, _IOLBF, 0);   // line-buffered stdout
+    setvbuf(stderr, NULL, _IONBF, 0);   // unbuffered stderr
+
     int Ch;
     while((Ch = getopt(argc, argv, "d")) != -1) {
         switch(Ch) {
@@ -70,6 +120,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    DevId = findMediaDevId();
     RetVal = MediaDeviceCreate(DevId);
     if (RetVal != VSI_SUCCESS) {
         printf("Create media device %d error %d", DevId, RetVal);

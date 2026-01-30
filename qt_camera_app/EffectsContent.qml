@@ -444,7 +444,8 @@ ColumnLayout {
     }
 
     Button {
-        text: "Reset"
+        text: "Cproc Reset"
+        visible: cprocCheckbox.checked
         background: Rectangle {
             color: "white"
             opacity: 0.7

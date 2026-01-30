@@ -110,9 +110,14 @@ static int ConvertStringToV4l2Format(char *String, int *Format)
 void help(void)
 {
     printf("Usage:\n");
+#ifdef DOLPHIN
     printf("\t./isp_video_test  -w 1920 -h 1080 -f NV12 -m 0 -t 3 -u 0 -d 4 -p /path_to_store_file\n");
 #ifdef MCM_RAW_DUMP_SUPPORT
     printf("\t./isp_video_test  -w 1920 -h 1080 -f NV12 -m 0 -t 3 -u 0 -r 0 -d 4 -p /path_to_store_file\n");
+#endif
+#endif
+#ifdef KLAMATH
+    printf("\t./isp_video_test  -w 1920 -h 1080 -f NM12 -m 0 -t 3 -d 4 -p /path_to_store_file\n");
 #endif
 #ifdef ISP_SCALE_SUPPORT
     printf("\t./isp_video_test  -w 1280 -h 720 -f NV12 -m 0 -t 0 -d 0 -s\n");
@@ -124,7 +129,12 @@ void help(void)
     printf("Options:\n");
     printf("\t-w  image width\n");
     printf("\t-h  image height\n");
+#ifdef DOLPHIN
     printf("\t-f  image format NV12, NM12, RAW, RGB24, BGR24, YUV3\n");
+#endif
+#ifdef KLAMATH
+    printf("\t-f  image format NM12, RAW, RGB24, BGR24\n");
+#endif
     printf("\t-m  sensor mode index\n");
     printf("\t-t  display type 0:drm 2:file 3:Wayland\n");
     printf("\t-d  video device id\n");
@@ -134,7 +144,9 @@ void help(void)
 #ifdef ISP_CROP_SUPPORT
     printf("\t-c  enable crop\n");
 #endif
+#ifdef DOLPHIN
     printf("\t-u  IOMMU 1:enable 0:disable\n");
+#endif
 #ifdef MCM_RAW_DUMP_SUPPORT
     printf("\t-r  MCM dump 1:enable 0:disable\n");
 #endif

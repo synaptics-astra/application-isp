@@ -35,24 +35,42 @@ void readSensorConfig(int &width, int &height, int &framerate) {
     }
 
     QTextStream in(&file);
-    QString line = in.readLine();
+    QString line;
+    QString sensorLine;
+    QString modeLine;
+    bool foundSensor = false;
     int lineCount = 0;
 
-    while (!line.isNull() && lineCount < 3) {
+    while (lineCount < 4) {
         line = in.readLine();
-        lineCount++;
-        if (lineCount == 2) {
-            qWarning() << line;
-            if (line.contains("ov")) {
-                width = OV_WIDTH;
-                height = OV_HEIGHT;
-                framerate = OV_FRAMERATE;
-            } else {
-                width = DEFAULT_WIDTH;
-                height = DEFAULT_HEIGHT;
-                framerate = DEFAULT_FRAMERATE;
-            }
+        if (line.contains("sensor")) {
+            sensorLine = line;
+            foundSensor = true;
+        }
+
+        if (line.contains("mode") && foundSensor) {
+            modeLine = line;
             break;
+        }
+
+        lineCount++;
+    }
+
+    if (!sensorLine.isEmpty() && !modeLine.isEmpty()) {
+        qWarning() << sensorLine << " " << modeLine;
+
+        if (sensorLine.contains("ov") && modeLine.contains("1")) {
+            width = DEFAULT_WIDTH;
+            height = DEFAULT_HEIGHT;
+            framerate = DEFAULT_FRAMERATE;
+        } else if (sensorLine.contains("ov")) {
+            width = OV_WIDTH;
+            height = OV_HEIGHT;
+            framerate = OV_FRAMERATE;
+        } else {
+            width = DEFAULT_WIDTH;
+            height = DEFAULT_HEIGHT;
+            framerate = DEFAULT_FRAMERATE;
         }
     }
 

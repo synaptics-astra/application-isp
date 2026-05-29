@@ -2,6 +2,7 @@
 #include <QByteArray>
 #include <QDebug>
 #include <cstring>
+
 #ifdef YUV_SEMIPLANNER_SHADER
 CameraTexture::CameraTexture(int width, int height)
     : mWidth(width), mHeight(height)

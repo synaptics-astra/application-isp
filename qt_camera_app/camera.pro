@@ -35,11 +35,11 @@ SOURCES += main.cpp \
     effects_controller.cpp \
     roi_control.cpp \
     v4l2_ctl.cpp \
-    yuv2rgb_material.cpp \
     camera_player.cpp \
     imagestream.cpp \
     GstStreamingRTP.cpp \
-    streaming_server.cpp
+    streaming_server.cpp \
+    camera_rendernode.cpp
 
 HEADERS += \
     camera.h\
@@ -59,11 +59,11 @@ HEADERS += \
     effects_controller.h \
     roi_control.h \
     v4l2_ctl.h \
-    yuv2rgb_material.h \
     camera_player.h \
     imagestream.h \
     GstStreamingRTP.h \
-    streaming_server.h
+    streaming_server.h \
+    camera_rendernode.cpp
 
 DEFINES += "CONFIG_RDK_PLATFORM"
 SOURCES += rdk_camera.cpp

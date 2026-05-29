@@ -95,7 +95,8 @@ void CameraPlayer::textureChanged(uchar* buffer, int size)
 QSGNode *CameraPlayer::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 {
     QThread::currentThread()->setPriority(QThread::HighPriority);
-    QSGGeometryNode *node;
+    //QSGGeometryNode *node;
+    QSGNode *node;
 
     if (!oldNode) {
         node = mCamera->createNode();

@@ -6,13 +6,13 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <nv12_frame.h>
+#include <QtQuick/QSGNode>
 
 #define SUPPORT_V4L2_MPLANE 1
 #define MAX_PLANES 2
 
 class ImageStream;
 class CameraTexture;
-class QSGGeometryNode;
 
 class Camera : public VideoStreamer
 {
@@ -28,7 +28,7 @@ class Camera : public VideoStreamer
         virtual void setWidth(int width) { m_width = width; }
         virtual void setHeight(int height) { m_height = height; }
 
-        QSGGeometryNode *createNode();
+        QSGNode *createNode();
         void updateGeometry(qreal x, qreal y, qreal width, qreal height);
         void updateMaterial();
 
@@ -99,7 +99,7 @@ class Camera : public VideoStreamer
         int frame_devisor;
         QMutex m_wait_mutex;
         QWaitCondition m_wait;
-        QSGGeometryNode *m_node;
+        QSGNode *m_node;
 
         int initCapture();
         int startCapture();

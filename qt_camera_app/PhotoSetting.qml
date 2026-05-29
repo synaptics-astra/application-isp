@@ -22,6 +22,8 @@ ColumnLayout {
         }
         TextField {
             id: photoNameField
+            height: 40
+            implicitHeight: 40
             placeholderText: "Enter photo name"
             Layout.fillWidth: true
             background: Rectangle {
@@ -41,19 +43,31 @@ ColumnLayout {
             Layout.alignment: Qt.AlignVCenter
             color: "white"
         }
-        ComboBox {
+    ComboBox {
             id: photoFileType
-            model: ["png", "jpeg"]
-            currentIndex: 0
-            Layout.fillWidth: true
-            background: Rectangle {
-                color: "white"
-                border.color: "black"
-                opacity: 0.5
-                border.width: 1
-                radius: 5
-            }
+        model: ["png", "jpeg"]
+        currentIndex: 0
+        Layout.fillWidth: true
+
+        height: 40
+        implicitHeight: 40
+
+        contentItem: Text {
+              text: photoFileType.displayText
+          verticalAlignment: Text.AlignVCenter
+          leftPadding: 10
+          color: "black"
+          elide: Text.ElideRight
         }
+
+           background: Rectangle {
+               color: "white"
+           border.color: "black"
+           border.width: 1
+           opacity: 0.5
+           radius: 5
+        }
+    }
     }
 
     Rectangle {

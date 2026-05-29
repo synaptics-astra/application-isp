@@ -48,6 +48,7 @@ ColumnLayout {
             model: ["mp4"]
             currentIndex: 0
             Layout.fillWidth: true
+            implicitHeight: 40
 
             background: Rectangle {
                 color: "white"

@@ -7,6 +7,8 @@
 
 #define MAX_TEXTURE 2
 
+#define YUV_SEMIPLANNER_SHADER
+
 class CameraTexture : public QSGTexture
 {
     public:
@@ -28,7 +30,12 @@ class CameraTexture : public QSGTexture
         virtual bool hasMipmaps() const { return false; }
         virtual QSize textureSize() const { return QSize(mWidth, mHeight); }
 
-        void updateFrame(const NV12Frame *frame);
+    void updateFrame(const NV12Frame *frame);
+
+    qint64 comparisonKey() const override
+    {
+        return reinterpret_cast<qint64>(this);
+    }
 
     private:
         int mWidth;

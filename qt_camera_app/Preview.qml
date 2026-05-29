@@ -14,8 +14,8 @@ Rectangle {
 
     Button {
         id: previewButton
-        width: bottomRectangle.width * 0.04
-        height: bottomRectangle.width * 0.04
+        width: parent.width
+        height: parent.height
         anchors.right: topRectangle.right
         anchors.bottom: topRectangle.bottom
         anchors.margins: 20

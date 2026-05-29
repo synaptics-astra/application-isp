@@ -94,8 +94,10 @@ int main(int argc, char *argv[])
     qmlRegisterType<ImageItem>("ImageItem", 1, 0, "ImageItem");
     qmlRegisterType<RoiControl>("RoiControl", 1, 0, "RoiControl");
 
-    QQmlApplicationEngine engine;
+    qputenv("QT_DISABLE_SHADER_DISK_CACHE", "1");
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 
+    QQmlApplicationEngine engine;
     int width = DEFAULT_WIDTH;
     int height = DEFAULT_HEIGHT;
     int framerate = DEFAULT_FRAMERATE;

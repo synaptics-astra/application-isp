@@ -18,6 +18,10 @@ ApplicationWindow {
     height: windowHeight
     visibility: windowWidth < defaultWidth ? ApplicationWindow.Windowed :  ApplicationWindow.FullScreen
     color: "black"
+    property int defaultWidth: 1920
+    property int defaultHeight: 1080
+    property real scaleFix: Math.max(0.6, Math.min(width / defaultWidth, height / defaultHeight))
+
 
     //close app
     Action {
@@ -45,6 +49,7 @@ ApplicationWindow {
             Layout.fillHeight: true
             Layout.preferredWidth: parent.width
             anchors.centerIn: parent
+            Layout.alignment: Qt.AlignCenter
             color: "black"
             radius: 15
 
@@ -92,6 +97,7 @@ ApplicationWindow {
                         width: parent.width
                         height: parent.height
                         anchors.centerIn: parent
+                        Layout.alignment: Qt.AlignCenter
                         visible: false
                     }
 
@@ -101,6 +107,7 @@ ApplicationWindow {
                         width: parent.width
                         height: parent.height
                         anchors.centerIn: parent
+                        Layout.alignment: Qt.AlignCenter
                         visible: false
 
 
@@ -156,7 +163,7 @@ ApplicationWindow {
                     Rectangle {
                         id: bottomRectangle
                         width: topRectangle.width
-                        height: topRectangle.height * 0.15
+                        height: Math.max(80, topRectangle.height * 0.15)
                         color: "transparent"
                         anchors.bottom: parent.bottom
                         anchors.left: parent.left
@@ -165,11 +172,11 @@ ApplicationWindow {
                         //exit button
                         Button {
                             id: exitButton
-                            width: parent.width * 0.04
-                            height: parent.width * 0.04
+                            width: Math.max(48, parent.width * 0.04 * mainWindow.scaleFix)
+                            height: width
                             anchors.left: parent.left
                             anchors.bottom: parent.bottom
-                            anchors.margins: 20
+                            anchors.margins: 20 * mainWindow.scaleFix
 
                             background: Rectangle {
                                 color: "transparent"
@@ -214,6 +221,7 @@ ApplicationWindow {
                                     color: slider.x >= mode.width / 2 ? "#0D92F4" : "#62CDFF"
                                     font.bold: true
                                     anchors.centerIn: parent
+                                    Layout.alignment: Qt.AlignCenter
                                 }
 
                                 property bool checked: false
@@ -250,6 +258,7 @@ ApplicationWindow {
                             id: buttonContainer
                             visible: buttonContainer
                             anchors.centerIn: parent
+                            Layout.alignment: Qt.AlignCenter
                             width: bottomRectangle.width * 0.4
                             height: bottomRectangle.height * 0.7
                             radius: 10
@@ -292,8 +301,9 @@ ApplicationWindow {
                             id: previeButton
                             anchors.right: bottomRectangle.right
                             anchors.bottom: bottomRectangle.bottom
-                            width: bottomRectangle.width * 0.05
-                            height: bottomRectangle.width * 0.05
+                            //width: Math.max(60, 56 * mainWindow.scaleFix)
+                            width: Math.max(48, parent.width * 0.04 * mainWindow.scaleFix)
+                            height: width
                             color: "transparent"
                             visible: true
                         }
@@ -301,11 +311,11 @@ ApplicationWindow {
 
                     Button {
                         id: settingButton
-                        width: parent.width * 0.02
-                        height: parent.width * 0.02
+                        width: Math.max(40, parent.width * 0.02 * mainWindow.scaleFix)
+                        height: width
                         anchors.top: parent.top
                         anchors.left: parent.left
-                        anchors.margins: 20
+                        anchors.margins: 20 * mainWindow.scaleFix
                         visible: true
                         contentItem: Image {
                             source: "qrc:/Image/settings.png"
@@ -363,8 +373,8 @@ ApplicationWindow {
 
                     Button {
                         id: effectsButton
-                        width: parent.width * 0.02
-                        height: parent.width * 0.02
+                        width: Math.max(40, parent.width * 0.02 * mainWindow.scaleFix)
+                        height: width
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 20
@@ -436,6 +446,7 @@ ApplicationWindow {
 
                             RowLayout {
                                 anchors.centerIn: parent
+                                Layout.alignment: Qt.AlignCenter
                                 Text {
                                     id: liveDot
                                     text: "."
@@ -492,6 +503,7 @@ ApplicationWindow {
 
                         RowLayout {
                             anchors.centerIn: parent
+                            Layout.alignment: Qt.AlignCenter
                             Text {
                                 id: liveText
                                 text: "STREAMING "

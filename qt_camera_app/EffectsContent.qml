@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Controls.Styles 1.4
 import QtQuick.Layouts 1.15
 import EffectsController 1.0
 import RoiControl 1.0
@@ -365,6 +364,7 @@ ColumnLayout {
             model: [5, 3, 4]
             currentIndex: 0
             Layout.fillWidth: true
+            implicitHeight: 40
             background: Rectangle {
                 color: "white"
                 border.color: "black"

@@ -2,7 +2,7 @@
 #include "imagestream.h"
 #include "camera_texture.h"
 #include "camera_texture.h"
-#include "yuv2rgb_material.h"
+#include "camera_rendernode.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -15,6 +15,7 @@
 
 #include <QDebug>
 #include <QSGGeometryNode>
+#include <QSGNode>
 
 #define PLANE_Y  0
 #define PLANE_UV 1
@@ -33,7 +34,7 @@ Camera* Camera::getInstance(QObject *parent)
 Camera::Camera(QObject *parent)
     : VideoStreamer(parent), m_image(0), m_texture(0),
       frame_count(0), frame_devisor(1),
-      m_node(0)
+      m_node(nullptr)
 {
     videodev.fd = -1;
 }
@@ -56,24 +57,14 @@ void Camera::setDeviceId(unsigned int id)
     }
 }
 
-QSGGeometryNode *Camera::createNode()
-{
-    QSGGeometry *geometry;
 
+QSGNode *Camera::createNode()
+{
     if (!m_texture)
         m_texture = new CameraTexture(m_image->getWidth(), m_image->getHeight());
 
     if (!m_node) {
-        m_node = new QSGGeometryNode;
-        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_TexturedPoint2D(), 4);
-        geometry->setDrawingMode(GL_TRIANGLE_STRIP);
-        m_node->setGeometry(geometry);
-        m_node->setFlag(QSGNode::OwnsGeometry);
-
-        YUV2RGBMaterial *material = new YUV2RGBMaterial;
-        material->setTexture(m_texture);
-        m_node->setMaterial(material);
-        m_node->setFlag(QSGNode::OwnsMaterial);
+        m_node = new CameraRenderNode(m_texture);
     }
 
     return m_node;
@@ -83,28 +74,10 @@ void Camera::updateGeometry(qreal x, qreal y, qreal width, qreal height)
 {
     Q_UNUSED(x);
     Q_UNUSED(y);
-    QSGGeometry::TexturedPoint2D *vertices
-            = m_node->geometry()->vertexDataAsTexturedPoint2D();
 
-    vertices[0].x = 0;
-    vertices[0].y = 0 + height;
-    vertices[0].tx = 0;
-    vertices[0].ty = 1;
+    Q_UNUSED(width);
+    Q_UNUSED(height);
 
-    vertices[1].x = 0;
-    vertices[1].y = 0;
-    vertices[1].tx = 0;
-    vertices[1].ty = 0;
-
-    vertices[2].x = 0 + width;
-    vertices[2].y = 0 + height;
-    vertices[2].tx = 1;
-    vertices[2].ty = 1;
-
-    vertices[3].x = 0 + width;
-    vertices[3].y = 0;
-    vertices[3].tx = 1;
-    vertices[3].ty = 0;
 }
 
 void Camera::startStream()
